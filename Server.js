@@ -1,12 +1,12 @@
 const express = require("express");
 const { createClient } = require("@supabase/supabase-js");
+const cors = require("cors");
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
-// Configuración de Supabase protegida con Variables de Entorno
-// La URL es pública por naturaleza, pero la Key la ocultamos
 const supabaseUrl = "https://ywycizbmesdhtfaaxyxt.supabase.co";
 const supabaseKey = process.env.SUPABASE_KEY; 
 
@@ -26,7 +26,7 @@ app.post("/login", async (req, res) => {
     return res.status(401).json({ error: "Credenciales incorrectas." });
   }
   if (!data.activo) {
-    return res.status(403).json({ error: "Tu cuenta está pendiente de aprobación por un administrador." });
+    return res.status(403).json({ error: "Tu cuenta está pendiente de aprobación." });
   }
 
   res.json({ success: true, usuario: { email: data.email, es_admin: data.es_admin } });
@@ -101,7 +101,7 @@ app.post("/profesional", async (req, res) => {
   const { nombre } = req.body;
   const { error } = await supabase
     .from("profesionales")
-    .insert({ nombre, activo: true, color: "#e2e8f0" }); // Color por defecto
+    .insert({ nombre, activo: true, color: "#e2e8f0" });
 
   if (error) return res.status(500).json(error);
   res.json({ success: true });
@@ -121,11 +121,8 @@ app.patch("/profesional/:id/color", async (req, res) => {
 
 app.delete("/profesional/:id", async (req, res) => {
   const { id } = req.params;
-  // 1. Borrar turnos de la agenda asignados a este profesional
   await supabase.from("agenda_base").delete().eq("profesional_id", id);
-  // 2. Borrar las licencias
   await supabase.from("ausencias").delete().eq("profesional_id", id);
-  // 3. Borrar al profesional
   const { error } = await supabase.from("profesionales").delete().eq("id", id);
 
   if (error) return res.status(500).json(error);
@@ -185,7 +182,6 @@ app.post("/agenda", async (req, res) => {
   res.json({ success: true });
 });
 
-// Configuración de puerto para Render o Local
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor iniciado correctamente en el puerto ${PORT}`);
