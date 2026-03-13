@@ -259,7 +259,6 @@ function prepararVistaAgenda(titulo) {
         </div>`;
 }
 
-// Función que faltaba y hacía que el botón no funcione
 function ejecutarBusqueda() {
     verAgenda();
 }
@@ -268,7 +267,6 @@ async function verAgenda() {
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
     
-    // Cargamos todo en paralelo para que sea más rápido
     const [resCons, resAg, resProf, resAus] = await Promise.all([
         fetch(`/consultorios?sector=${sector}`),
         fetch(`/agenda?dia=${dia}&sector=${sector}`),
@@ -284,12 +282,10 @@ async function verAgenda() {
     dibujarAgenda(consultorios, agenda, profesionales, ausencias, dia, sector);
 }
 
-// Lógica de licencia que evita desfases de horario
 function estaEnLicencia(idProfesional, ausencias) {
     const licencia = ausencias.find(a => a.profesional_id === idProfesional);
     if (!licencia || !licencia.fecha_desde || !licencia.fecha_hasta) return false;
     
-    // 'sv-SE' garantiza formato YYYY-MM-DD local
     const hoyStr = new Date().toLocaleDateString('sv-SE');
 
     if (hoyStr >= licencia.fecha_desde && hoyStr <= licencia.fecha_hasta) {
@@ -344,8 +340,10 @@ function dibujarAgenda(consultorios, agenda, profesionales, ausencias, dia, sect
                     if(p) {
                         let lic = estaEnLicencia(p.id, ausencias);
                         if (lic && lic.activa) {
-                            html += `<td class="slot-licencia" style="background-color:#ffebeb; border-left: 4px solid red; font-size:0.85em;">
-                                        <strong>${p.nombre}</strong><br><span style="color:red">LICENCIA</span>
+                            html += `<td class="slot-licencia" style="background-color:#ffebeb; border-left: 4px solid red; font-size:0.75em; padding: 5px;">
+                                        <strong>${p.nombre}</strong><br>
+                                        <span style="color:red; font-weight:bold;">LICENCIA</span><br>
+                                        <small style="color: #666;">${lic.texto}</small>
                                      </td>`;
                         } else {
                             html += `<td class="slot-ocupado celda-drop" style="background-color: ${p.color || '#e2e8f0'};" 
