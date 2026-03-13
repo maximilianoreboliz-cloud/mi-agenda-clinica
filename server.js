@@ -132,11 +132,19 @@ app.delete("/profesional/:id", async (req, res) => {
 /* --- LICENCIAS --- */
 app.post("/licencia", async (req, res) => {
   const { profesional_id, desde, hasta } = req.body;
-  const { error } = await supabase
-    .from("ausencias")
-    .insert({ profesional_id, fecha_desde: desde, fecha_hasta: hasta });
 
-  if (error) return res.status(500).json(error);
+  // 1. Borramos cualquier licencia anterior que tuviera este profesional
+  await supabase.from("ausencias").delete().eq("profesional_id", profesional_id);
+
+  // 2. Si mandaste fechas nuevas, creamos la licencia actualizada
+  if (desde && hasta) {
+      const { error } = await supabase
+        .from("ausencias")
+        .insert({ profesional_id, fecha_desde: desde, fecha_hasta: hasta });
+
+      if (error) return res.status(500).json(error);
+  }
+
   res.json({ success: true });
 });
 
