@@ -90,7 +90,7 @@ function cerrarSesion() {
     document.getElementById("password").value = "";
 }
 
-/* --- UTILIDADES --- */
+/* --- UTILIDADES SIDEBAR --- */
 async function cargarSectores() {
     const res = await fetch("/sectores");
     const sectores = await res.json();
@@ -109,7 +109,7 @@ function actualizarBotonesMenu(activo) {
     document.getElementById(activo)?.classList.add('active');
 }
 
-/* --- ADMIN --- */
+/* --- PANEL DE CONTROL (ADMIN) --- */
 async function cargarPanelControl() {
     actualizarBotonesMenu('btn-panel');
     document.getElementById("titulo-seccion").innerText = "Panel de Control - Usuarios Pendientes";
@@ -187,7 +187,7 @@ async function pantallaProfesionales() {
                     </div>
                 </td>
                 <td style="width: 100px; text-align:center;">
-                    <button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')">🗑️ Borrar</button>
+                    <button class="accion-btn btn-delete" title="Borrar profesional y sus turnos" onclick="eliminarProfesional('${p.id}')">🗑️ Borrar</button>
                 </td>
             </tr>
         `;
@@ -219,23 +219,24 @@ async function cambiarColor(id, color) {
 async function guardarLicencia(id) {
     const desde = document.getElementById("d_" + id).value;
     const hasta = document.getElementById("h_" + id).value;
-    if (!desde || !hasta) return alert("Selecciona ambas fechas");
+    
     await fetch("/licencia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profesional_id: id, desde, hasta })
     });
-    alert("Licencia guardada correctamente.");
-    pantallaProfesionales(); // Refrescar para ver los cambios
+    
+    alert("Licencia actualizada correctamente.");
+    pantallaProfesionales();
 }
 
 async function eliminarProfesional(id) {
-    if (!confirm("⚠️ Se borrará al profesional y sus turnos. ¿Continuar?")) return;
+    if (!confirm("⚠️ ATENCIÓN: Esto borrará al profesional y sus turnos. ¿Estás seguro?")) return;
     await fetch(`/profesional/${id}`, { method: "DELETE" });
     pantallaProfesionales();
 }
 
-/* --- AGENDA --- */
+/* --- AGENDA (VER Y MODIFICAR) --- */
 function pantallaVerAgenda() {
     modo = "ver";
     actualizarBotonesMenu('btn-ver');
@@ -254,14 +255,20 @@ function prepararVistaAgenda(titulo) {
     document.getElementById("main-content").innerHTML = `
         <div class="empty-state">
             <h2>Selecciona Día y Sector</h2>
-            <p>Luego presiona el botón "Buscar".</p>
+            <p>Luego presiona el botón "Buscar" para cargar la grilla.</p>
         </div>`;
+}
+
+// Función que faltaba y hacía que el botón no funcione
+function ejecutarBusqueda() {
+    verAgenda();
 }
 
 async function verAgenda() {
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
     
+    // Cargamos todo en paralelo para que sea más rápido
     const [resCons, resAg, resProf, resAus] = await Promise.all([
         fetch(`/consultorios?sector=${sector}`),
         fetch(`/agenda?dia=${dia}&sector=${sector}`),
@@ -277,13 +284,13 @@ async function verAgenda() {
     dibujarAgenda(consultorios, agenda, profesionales, ausencias, dia, sector);
 }
 
-// CORRECCIÓN CLAVE: Función de licencia mejorada para evitar desfases de zona horaria
+// Lógica de licencia que evita desfases de horario
 function estaEnLicencia(idProfesional, ausencias) {
     const licencia = ausencias.find(a => a.profesional_id === idProfesional);
     if (!licencia || !licencia.fecha_desde || !licencia.fecha_hasta) return false;
     
-    // Obtenemos la fecha de hoy en formato local YYYY-MM-DD
-    const hoyStr = new Date().toLocaleDateString('sv-SE'); // 'sv-SE' da formato YYYY-MM-DD
+    // 'sv-SE' garantiza formato YYYY-MM-DD local
+    const hoyStr = new Date().toLocaleDateString('sv-SE');
 
     if (hoyStr >= licencia.fecha_desde && hoyStr <= licencia.fecha_hasta) {
         return {
@@ -307,7 +314,7 @@ function dibujarAgenda(consultorios, agenda, profesionales, ausencias, dia, sect
     }
 
     let html = `
-    <h3 style="margin-bottom:20px;">🗓️ ${sector} | ${dia}</h3>
+    <h3 style="margin-bottom:20px;">🗓️ Sector: ${sector} | Día: ${dia}</h3>
     <div class="card-table">
         <table class="tabla-agenda">
             <tr><th style="width:80px;">Hora</th>`;
@@ -337,8 +344,8 @@ function dibujarAgenda(consultorios, agenda, profesionales, ausencias, dia, sect
                     if(p) {
                         let lic = estaEnLicencia(p.id, ausencias);
                         if (lic && lic.activa) {
-                            html += `<td class="slot-licencia" style="background-color:#ffebeb; border-left: 4px solid red;">
-                                        <strong>${p.nombre}</strong><br><small style="color:red">LICENCIA<br>${lic.texto}</small>
+                            html += `<td class="slot-licencia" style="background-color:#ffebeb; border-left: 4px solid red; font-size:0.85em;">
+                                        <strong>${p.nombre}</strong><br><span style="color:red">LICENCIA</span>
                                      </td>`;
                         } else {
                             html += `<td class="slot-ocupado celda-drop" style="background-color: ${p.color || '#e2e8f0'};" 
@@ -361,13 +368,21 @@ function dibujarAgenda(consultorios, agenda, profesionales, ausencias, dia, sect
     document.getElementById("main-content").innerHTML = html;
 }
 
+/* --- GUARDAR Y DRAG & DROP --- */
 async function guardarAgenda(consultorio, horario, profesionalId) {
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
+    
     await fetch("/agenda", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ consultorio_id: consultorio, profesional_id: profesionalId || null, horario, dia_semana: dia, sector })
+        body: JSON.stringify({
+            consultorio_id: consultorio,
+            profesional_id: profesionalId || null,
+            horario,
+            dia_semana: dia,
+            sector
+        })
     });
 }
 
