@@ -1,12 +1,13 @@
 let modo = "ver";
 let esRegistro = false;
 let datosUsuario = null;
-window.datosProfesionales = []; // Global para acceso rápido en selects de agenda
+let listaProfesionalesGlobal = []; // Para usar en la agenda
 
+// Inicialización
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input').forEach(input => {
         input.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter' && (this.id === 'email' || this.id === 'password')) procesarFormulario();
+            if (e.key === 'Enter') procesarFormulario();
         });
     });
 });
@@ -17,7 +18,7 @@ function toggleModoFormulario() {
     document.getElementById("form-title").innerText = esRegistro ? "Crear Cuenta" : "Ingreso al Sistema";
     document.getElementById("btn-submit").innerText = esRegistro ? "Solicitar Cuenta" : "Ingresar";
     document.getElementById("toggle-text").innerHTML = esRegistro 
-        ? '¿Ya tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Ingresar</a>'
+        ? '¿Ya tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Ingresar</a>' 
         : '¿No tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Solicitar acceso</a>';
     document.getElementById("error-msg").innerText = "";
     document.getElementById("success-msg").innerText = "";
@@ -31,11 +32,12 @@ async function procesarFormulario() {
     errorMsg.innerText = ""; successMsg.innerText = "";
 
     if (!email || !password) return errorMsg.innerText = "Completa todos los campos.";
-
+    
     const endpoint = esRegistro ? "/registro" : "/login";
     try {
         const res = await fetch(endpoint, {
-            method: "POST", headers: { "Content-Type": "application/json" },
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password })
         });
         const data = await res.json();
@@ -43,9 +45,15 @@ async function procesarFormulario() {
             if (esRegistro) {
                 successMsg.innerText = "Solicitud enviada. Un administrador debe aprobarla.";
                 setTimeout(() => toggleModoFormulario(), 3000);
-            } else { iniciarSesion(data.usuario); }
-        } else { errorMsg.innerText = data.error || "Ocurrió un error."; }
-    } catch (err) { errorMsg.innerText = "Error de conexión con el servidor."; }
+            } else {
+                iniciarSesion(data.usuario);
+            }
+        } else {
+            errorMsg.innerText = data.error || "Ocurrió un error.";
+        }
+    } catch (err) {
+        errorMsg.innerText = "Error de conexión con el servidor.";
+    }
 }
 
 async function iniciarSesion(usuario) {
@@ -53,11 +61,15 @@ async function iniciarSesion(usuario) {
     document.getElementById("login-container").style.display = "none";
     document.getElementById("app").style.display = "flex";
     document.getElementById("user-email-display").innerText = usuario.email;
-
     document.getElementById("btn-panel").style.display = usuario.es_admin ? "block" : "none";
+    
     await cargarSectores();
     document.getElementById("titulo-seccion").innerText = "Bienvenido";
-    document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>¡Hola, ${usuario.email.split('@')[0]}!</h2><p>Selecciona una opción del menú lateral para comenzar.</p></div>`;
+    document.getElementById("main-content").innerHTML = `
+        <div class="empty-state">
+            <h2>¡Hola, ${usuario.email.split('@')[0]}!</h2>
+            <p>Selecciona una opción del menú lateral para comenzar.</p>
+        </div>`;
 }
 
 function cerrarSesion() {
@@ -74,12 +86,15 @@ async function cargarSectores() {
     const sectores = await res.json();
     const select = document.getElementById("sector");
     select.innerHTML = "";
-    sectores.forEach(s => { select.innerHTML += `<option value="${s.nombre}">${s.nombre}</option>`; });
+    sectores.forEach(s => {
+        let o = document.createElement("option");
+        o.value = s.nombre; o.innerText = s.nombre; select.appendChild(o);
+    });
 }
 
 function actualizarBotonesMenu(activo) {
     document.querySelectorAll('.sidebar-nav button').forEach(b => b.classList.remove('active'));
-    document.getElementById(activo)?.classList.add('active');
+    if(activo) document.getElementById(activo)?.classList.add('active');
 }
 
 /* --- PANEL DE CONTROL (ADMIN) --- */
@@ -88,23 +103,36 @@ async function cargarPanelControl() {
     document.getElementById("titulo-seccion").innerText = "Panel de Control de Usuarios";
     document.getElementById("filtros-container").style.display = "none";
 
-    const [resPend, resAprob] = await Promise.all([fetch("/usuarios/pendientes"), fetch("/usuarios/aprobados")]);
-    const pendientes = await resPend.json();
-    const aprobados = await resAprob.json();
+    const res = await fetch("/usuarios/admin");
+    const usuarios = await res.json();
 
-    let html = `<h3>Solicitudes Pendientes</h3><div class="card-table" style="margin-bottom:30px;"><table><tr><th>Email</th><th>Fecha</th><th>Acción</th></tr>`;
-    if (pendientes.length === 0) { html += `<tr><td colspan="3" style="text-align:center">No hay solicitudes pendientes.</td></tr>`; } 
-    else {
-        pendientes.forEach(u => {
-            html += `<tr><td>${u.email}</td><td>${new Date(u.creado_en).toLocaleDateString('es-ES')}</td>
-            <td><button class="accion-btn btn-save" onclick="aprobarUsuario('${u.id}')">✅ Aprobar</button></td></tr>`;
+    let html = `
+    <h3 style="margin-bottom:15px; color:var(--text-main);">Gestión de Accesos</h3>
+    <div class="card-table"><table>
+        <tr><th>Email</th><th>Estado</th><th>Fecha Alta</th><th>Acciones</th></tr>`;
+
+    if (usuarios.length === 0) {
+        html += `<tr><td colspan="4" style="text-align:center">No hay usuarios en el sistema.</td></tr>`;
+    } else {
+        usuarios.forEach(u => {
+            const fecha = new Date(u.creado_en).toLocaleDateString('es-ES');
+            const estado = u.activo 
+                ? `<span style="color:var(--success); font-weight:bold;">Activo</span>` 
+                : `<span style="color:#d97706; font-weight:bold;">Pendiente</span>`;
+            
+            const btnAprobar = !u.activo ? `<button class="accion-btn btn-save" style="margin-right:5px;" onclick="aprobarUsuario('${u.id}')">✅ Aprobar</button>` : '';
+
+            html += `<tr>
+                <td>${u.email}</td>
+                <td>${estado}</td>
+                <td>${fecha}</td>
+                <td style="width: 200px;">
+                    ${btnAprobar}
+                    <button class="accion-btn btn-delete" onclick="eliminarUsuario('${u.id}')">🗑️ Borrar</button>
+                </td>
+            </tr>`;
         });
     }
-    html += `</table></div><h3>Usuarios Activos</h3><div class="card-table"><table><tr><th>Email</th><th>Rol</th><th>Acción</th></tr>`;
-    aprobados.forEach(u => {
-        let btnBorrar = u.es_admin ? `<span style="color:#94a3b8; font-size:12px;">Admin General</span>` : `<button class="accion-btn btn-delete" onclick="borrarUsuario('${u.id}')">🗑️ Revocar Acceso</button>`;
-        html += `<tr><td>${u.email}</td><td>${u.es_admin ? 'Administrador' : 'Usuario'}</td><td>${btnBorrar}</td></tr>`;
-    });
     html += `</table></div>`;
     document.getElementById("main-content").innerHTML = html;
 }
@@ -115,77 +143,71 @@ async function aprobarUsuario(id) {
     cargarPanelControl();
 }
 
-async function borrarUsuario(id) {
-    if(!confirm("⚠️ ¿Estás seguro de que quieres eliminar el acceso a este usuario?")) return;
+async function eliminarUsuario(id) {
+    if(!confirm("⚠️ ATENCIÓN: Esto borrará al usuario permanentemente y no podrá ingresar. ¿Estás seguro?")) return;
     await fetch(`/usuarios/${id}`, { method: "DELETE" });
     cargarPanelControl();
 }
 
 /* --- PROFESIONALES --- */
-/* --- PROFESIONALES --- */
 async function pantallaProfesionales() {
     actualizarBotonesMenu();
-    document.getElementById("titulo-seccion").innerText = "Gestión de Profesionales y Especialidades";
+    document.getElementById("titulo-seccion").innerText = "Gestión de Profesionales";
     document.getElementById("filtros-container").style.display = "none";
 
-    const res = await fetch("/profesionales");
-    const profesionales = await res.json();
-    const resAus = await fetch("/ausencias");
+    const [resProf, resAus] = await Promise.all([fetch("/profesionales"), fetch("/ausencias")]);
+    const profesionales = await resProf.json();
     const ausencias = await resAus.json();
 
     let html = `
-    <div class="flex-row" style="flex-wrap: wrap; align-items: flex-start;">
+    <div class="flex-row" style="align-items: flex-start;">
         <div>
-            <input id="nuevoNombre" placeholder="Nombre del médico..." style="margin:0; width:250px;">
+            <input id="nuevoNombre" placeholder="Nombre del profesional..." style="margin:0; width:220px;">
         </div>
         <div>
-            <input id="nuevasEsp" placeholder="Ej: Neurología, General..." style="margin:0; width:300px;">
-            <div style="color:var(--text-muted); font-size:11px; margin-top:4px; font-weight:500;">
-                * Separa las especialidades con una coma ( , )
-            </div>
+            <input id="nuevasEsp" placeholder="Especialidades (Ej: Neuro, General)" style="margin:0; width:250px;">
+            <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">* Separa con comas ( , )</div>
         </div>
         <button class="btn-primary" style="width:auto; height: 42px;" onclick="agregarProfesional()">+ Añadir</button>
     </div>
     <div class="card-table">
         <table>
-            <tr><th style="width:60px;">Color</th><th>Profesional y Especialidades</th><th>Licencia (Desde - Hasta)</th><th style="width:180px;">Acciones</th></tr>`;
+            <tr><th style="width:60px;">Color</th><th>Nombre y Especialidades</th><th>Licencia (Desde - Hasta)</th><th style="width:170px;">Acciones</th></tr>`;
 
     profesionales.forEach(p => {
         let licencia = ausencias.find(a => a.profesional_id === p.id) || { fecha_desde: '', fecha_hasta: '' };
-        
-        // Transformamos las comas en " | " solo para la vista estética de la tabla
-        let especialidadesVisuales = p.especialidades 
-            ? p.especialidades.split(',').map(e => e.trim()).join(' <span style="color:#cbd5e1;">|</span> ') 
-            : '<em style="color:#94a3b8; font-size:12px;">Sin especialidad cargada</em>';
-        
+        let especialidadesVista = p.especialidades ? p.especialidades.split(',').join(' <span style="color:#cbd5e1;">|</span> ') : '<span style="color:#94a3b8; font-size:12px;">Sin especialidad</span>';
+
         html += `
-            <tr id="row_${p.id}">
-                <td style="text-align:center;"><input type="color" class="color-picker" id="c_${p.id}" value="${p.color || '#e2e8f0'}" onchange="cambiarColor('${p.id}', this.value)"></td>
+            <tr>
+                <td style="text-align:center;">
+                    <input type="color" class="color-picker" id="c_${p.id}" value="${p.color || '#e2e8f0'}" onchange="cambiarColor('${p.id}', this.value)">
+                </td>
                 <td>
                     <div id="vista_datos_${p.id}">
                         <strong>${p.nombre}</strong><br>
-                        <small style="color:var(--primary); font-weight:600;">${especialidadesVisuales}</small>
+                        <small style="color:var(--primary); font-weight:600;">${especialidadesVista}</small>
                     </div>
                     <div id="edit_datos_${p.id}" style="display:none; flex-direction:column; gap:5px;">
                         <input id="edit_nom_${p.id}" value="${p.nombre}" style="margin:0; padding:6px; font-size:14px;">
                         <input id="edit_esp_${p.id}" value="${p.especialidades || ''}" placeholder="Ej: Neurología, General" style="margin:0; padding:6px; font-size:12px;">
-                        <small style="color:var(--text-muted); font-size:10px; margin-top:-3px;">* Separa las especialidades con comas (,)</small>
                     </div>
                 </td>
                 <td>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="date" id="d_${p.id}" value="${licencia.fecha_desde}" style="margin:0; width:130px; font-size:12px;"><span>a</span><input type="date" id="h_${p.id}" value="${licencia.fecha_hasta}" style="margin:0; width:130px; font-size:12px;">
+                        <input type="date" id="d_${p.id}" value="${licencia.fecha_desde}" style="margin:0; width:130px; font-size:12px;">
+                        <span>a</span>
+                        <input type="date" id="h_${p.id}" value="${licencia.fecha_hasta}" style="margin:0; width:130px; font-size:12px;">
                         <button class="accion-btn btn-save" onclick="guardarLicencia('${p.id}')">Guardar</button>
                     </div>
                 </td>
                 <td style="text-align:center;">
                     <button id="btn_edit_${p.id}" class="accion-btn btn-primary" onclick="habilitarEdicionProf('${p.id}')">✏️ Editar</button>
                     <button id="btn_save_${p.id}" class="accion-btn btn-save" style="display:none;" onclick="guardarEdicionProf('${p.id}')">💾 OK</button>
-                    <button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')">🗑️</button>
+                    <button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')">🗑️ Borrar</button>
                 </td>
             </tr>`;
     });
-    
     html += `</table></div>`;
     document.getElementById("main-content").innerHTML = html;
 }
@@ -195,7 +217,8 @@ async function agregarProfesional() {
     const especialidades = document.getElementById("nuevasEsp").value;
     if (!nombre) return alert("Ingrese un nombre");
     await fetch("/profesional", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre, especialidades })
     });
     pantallaProfesionales();
@@ -211,39 +234,61 @@ function habilitarEdicionProf(id) {
 async function guardarEdicionProf(id) {
     const nombre = document.getElementById(`edit_nom_${id}`).value;
     const especialidades = document.getElementById(`edit_esp_${id}`).value;
-    if(!nombre) return alert("El nombre no puede quedar vacío.");
-
     await fetch(`/profesional/${id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre, especialidades })
     });
     pantallaProfesionales();
 }
 
-async function cambiarColor(id, color) { await fetch(`/profesional/${id}/color`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ color }) }); }
+async function cambiarColor(id, color) {
+    await fetch(`/profesional/${id}/color`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ color })
+    });
+}
 
 async function guardarLicencia(id) {
     const desde = document.getElementById("d_" + id).value;
     const hasta = document.getElementById("h_" + id).value;
-    await fetch("/licencia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profesional_id: id, desde, hasta }) });
+    await fetch("/licencia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profesional_id: id, desde, hasta })
+    });
     alert("Licencia actualizada.");
     pantallaProfesionales();
 }
 
 async function eliminarProfesional(id) {
-    if (!confirm("⚠️ ATENCIÓN: Esto borrará al profesional y sus turnos. ¿Continuar?")) return;
+    if (!confirm("⚠️ ATENCIÓN: Esto borrará al profesional y sus turnos. ¿Estás seguro?")) return;
     await fetch(`/profesional/${id}`, { method: "DELETE" });
     pantallaProfesionales();
 }
 
 /* --- AGENDA (VER Y MODIFICAR) --- */
-function pantallaVerAgenda() { modo = "ver"; actualizarBotonesMenu('btn-ver'); prepararVistaAgenda("Visor de Agenda"); }
-function pantallaModificarAgenda() { modo = "editar"; actualizarBotonesMenu('btn-editar'); prepararVistaAgenda("Edición de Agenda"); }
+function pantallaVerAgenda() {
+    modo = "ver";
+    actualizarBotonesMenu('btn-ver');
+    prepararVistaAgenda("Visor de Agenda");
+}
+
+function pantallaModificarAgenda() {
+    modo = "editar";
+    actualizarBotonesMenu('btn-editar');
+    prepararVistaAgenda("Edición de Agenda");
+}
 
 function prepararVistaAgenda(titulo) {
     document.getElementById("titulo-seccion").innerText = titulo;
     document.getElementById("filtros-container").style.display = "block";
-    document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>Selecciona Día y Sector</h2><p>Luego presiona el botón "Buscar".</p></div>`;
+    document.getElementById("main-content").innerHTML = `
+        <div class="empty-state">
+            <h2>Selecciona Día y Sector</h2>
+            <p>Luego presiona el botón "Buscar" para cargar la grilla.</p>
+        </div>`;
 }
 
 function ejecutarBusqueda() { verAgenda(); }
@@ -251,18 +296,20 @@ function ejecutarBusqueda() { verAgenda(); }
 async function verAgenda() {
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
-    
-    const [resCons, resAg, resProf, resAus] = await Promise.all([
-        fetch(`/consultorios?sector=${sector}`), fetch(`/agenda?dia=${dia}&sector=${sector}`),
-        fetch(`/profesionales`), fetch(`/ausencias`)
-    ]);
 
+    const [resCons, resAg, resProf, resAus] = await Promise.all([
+        fetch(`/consultorios?sector=${sector}`),
+        fetch(`/agenda?dia=${dia}&sector=${sector}`),
+        fetch(`/profesionales`),
+        fetch(`/ausencias`)
+    ]);
+    
     const consultorios = await resCons.json();
     const agenda = await resAg.json();
-    window.datosProfesionales = await resProf.json();
+    listaProfesionalesGlobal = await resProf.json();
     const ausencias = await resAus.json();
-
-    dibujarAgenda(consultorios, agenda, window.datosProfesionales, ausencias, dia, sector);
+    
+    dibujarAgenda(consultorios, agenda, ausencias, dia, sector);
 }
 
 function estaEnLicencia(idProfesional, ausencias) {
@@ -275,104 +322,91 @@ function estaEnLicencia(idProfesional, ausencias) {
     return false;
 }
 
-// Auxiliares para las listas de especialidades
-function tieneEspecialidades(idProf) {
-    const p = window.datosProfesionales.find(x => x.id === idProf);
-    return p && p.especialidades && p.especialidades.trim() !== "";
-}
-
-function generarOptionsEspecialidades(idProf, espSeleccionada) {
-    if (!idProf) return '<option value="">- Gral -</option>';
-    const p = window.datosProfesionales.find(x => x.id === idProf);
-    if (!p || !p.especialidades) return '<option value="">- Gral -</option>';
-
-    const espArray = p.especialidades.split(',').map(e => e.trim()).filter(e => e !== "");
-    let options = '<option value="">- General -</option>';
-    espArray.forEach(e => { options += `<option value="${e}" ${espSeleccionada === e ? 'selected' : ''}>${e}</option>`; });
-    return options;
-}
-
-function handleDocChange(consultorio, horario) {
-    const docSelect = document.getElementById(`sel_doc_${consultorio}_${horario.replace(':','')}`);
-    const espSelect = document.getElementById(`sel_esp_${consultorio}_${horario.replace(':','')}`);
-    const idProf = docSelect.value;
-
-    if (!idProf || !tieneEspecialidades(idProf)) {
-        espSelect.style.display = 'none';
-        espSelect.innerHTML = '<option value="">- Gral -</option>';
-    } else {
-        espSelect.innerHTML = generarOptionsEspecialidades(idProf, null);
-        espSelect.style.display = 'block';
-    }
-    guardarAgendaFinal(consultorio, horario);
-}
-
-async function guardarAgendaFinal(consultorio, horario) {
-    const idProf = document.getElementById(`sel_doc_${consultorio}_${horario.replace(':','')}`).value;
-    const esp = document.getElementById(`sel_esp_${consultorio}_${horario.replace(':','')}`).value;
-    const dia = document.getElementById("dia").value;
-    const sector = document.getElementById("sector").value;
-    
-    await fetch("/agenda", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ consultorio_id: consultorio, profesional_id: idProf || null, especialidad: esp || null, horario, dia_semana: dia, sector })
-    });
-}
-
-function dibujarAgenda(consultorios, agenda, profesionales, ausencias, dia, sector) {
+function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
     if(consultorios.length === 0) {
-        document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>No hay consultorios</h2></div>`; return;
+        document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>No hay consultorios</h2></div>`;
+        return;
     }
 
     let horarios = [];
-    for (let h = 8; h <= 19; h++) {
+    for (let h = 8; h <= 19; h++) { // Extendido hasta las 19:00
         horarios.push(`${String(h).padStart(2, "0")}:00`);
-        if(h < 19) horarios.push(`${String(h).padStart(2, "0")}:30`);
+        if(h !== 19) horarios.push(`${String(h).padStart(2, "0")}:30`); // Evita 19:30 si tu límite exacto es 19:00
     }
 
-    let html = `<h3 style="margin-bottom:20px;">🗓️ Sector: ${sector} | Día: ${dia}</h3>
-    <div class="card-table"><table class="tabla-agenda"><tr><th style="width:70px;">Hora</th>`;
-    
+    let html = `
+    <h3 style="margin-bottom:20px;">🗓️ Sector: ${sector} | Día: ${dia}</h3>
+    <div class="card-table" style="overflow-x: auto;">
+        <table class="tabla-agenda">
+            <tr><th style="width:70px;">Hora</th>`;
+
     consultorios.forEach(c => { html += `<th>Cons. ${c.numero}</th>`; });
     html += "</tr>";
 
     horarios.forEach(h => {
-        const idH = h.replace(':',''); // Para IDs HTML limpios
+        let h_str = h.replace(':', '_'); // Para IDs limpios
         html += `<tr><td><strong>${h}</strong></td>`;
+        
         consultorios.forEach(c => {
             let slot = agenda.find(a => a.horario == h && a.consultorio_id == c.id);
-            
+
             if (modo === "editar") {
-                let showEsp = slot && slot.profesional_id && tieneEspecialidades(slot.profesional_id);
-                html += `<td style="vertical-align: top;">
-                    <select class="select-agenda" id="sel_doc_${c.id}_${idH}" onchange="handleDocChange('${c.id}','${h}')">
-                        <option value="">- Libre -</option>
-                        ${profesionales.map(p => {
-                            const lic = estaEnLicencia(p.id, ausencias);
-                            return `<option value="${p.id}" ${slot && slot.profesional_id == p.id ? "selected" : ""}>${lic ? p.nombre+' (LIC)' : p.nombre}</option>`;
-                        }).join("")}
-                    </select>
-                    <select class="select-agenda select-esp" id="sel_esp_${c.id}_${idH}" onchange="guardarAgendaFinal('${c.id}','${h}')" style="${showEsp ? 'margin-top:6px;' : 'display:none;'} background-color: #f8fafc; font-size: 11px;">
-                        ${generarOptionsEspecialidades(slot ? slot.profesional_id : null, slot ? slot.especialidad : null)}
-                    </select>
+                let optionsProf = `<option value="">- Libre -</option>`;
+                listaProfesionalesGlobal.forEach(p => {
+                    const lic = estaEnLicencia(p.id, ausencias);
+                    const label = lic ? `${p.nombre} (LICENCIA)` : p.nombre;
+                    optionsProf += `<option value="${p.id}" ${slot && slot.profesional_id == p.id ? "selected" : ""}>${label}</option>`;
+                });
+
+                // Analizar si necesita mostrar la segunda lista al dibujar
+                let displayEsp = 'none';
+                let optionsEsp = '';
+                if (slot && slot.profesional_id) {
+                    let prof = listaProfesionalesGlobal.find(p => p.id === slot.profesional_id);
+                    if (prof && prof.especialidades) {
+                        let esps = prof.especialidades.split(',').map(e => e.trim());
+                        if (esps.length > 1) {
+                            displayEsp = 'block';
+                            optionsEsp = `<option value="">- Especialidad -</option>` + esps.map(e => `<option value="${e}" ${slot.especialidad === e ? "selected" : ""}>${e}</option>`).join('');
+                        } else {
+                            optionsEsp = `<option value="${esps[0]}">${esps[0]}</option>`;
+                        }
+                    }
+                }
+
+                html += `<td>
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <select class="select-agenda" id="prof_${c.id}_${h_str}" onchange="manejarCambioProfesional('${c.id}', '${h_str}')">
+                            ${optionsProf}
+                        </select>
+                        <select class="select-agenda" id="esp_${c.id}_${h_str}" style="display:${displayEsp}; font-size:11px; padding:4px;" onchange="guardarTurnoFinal('${c.id}', '${h_str}')">
+                            ${optionsEsp}
+                        </select>
+                    </div>
                 </td>`;
             } else {
-                if (slot) {
-                    let p = profesionales.find(x => x.id == slot.profesional_id);
+                // Modo VER
+                if (slot && slot.profesional_id) {
+                    let p = listaProfesionalesGlobal.find(x => x.id == slot.profesional_id);
                     if(p) {
                         let lic = estaEnLicencia(p.id, ausencias);
+                        let subtexto = slot.especialidad ? `<br><small style="color:#1e293b; opacity:0.8; font-size:10px;">${slot.especialidad}</small>` : '';
+
                         if (lic && lic.activa) {
-                            html += `<td class="slot-licencia" style="padding:5px;">
-                                        <strong>${p.nombre}</strong><br><span style="color:red; font-weight:bold;">LICENCIA</span><br><small style="color: #666;">${lic.texto}</small>
-                                     </td>`;
+                            html += `<td class="slot-licencia" style="background-color:#ffebeb; border-left: 4px solid red; font-size:0.75em; padding: 5px;">
+                                <strong>${p.nombre}</strong><br>
+                                <span style="color:red; font-weight:bold;">LICENCIA</span><br>
+                                <small style="color: #666;">${lic.texto}</small>
+                            </td>`;
                         } else {
-                            let textoEsp = slot.especialidad ? `<br><small style="color:#1d4ed8; font-weight:bold; font-size:11px;">${slot.especialidad}</small>` : '';
-                            html += `<td class="slot-ocupado celda-drop" style="background-color: ${p.color || '#e2e8f0'}; padding:8px 5px;" 
-                                         draggable="true" ondragstart="drag(event)" data-id="${p.id}">
-                                         <strong>${p.nombre}</strong>${textoEsp}
-                                     </td>`;
+                            html += `<td class="slot-ocupado celda-drop" style="background-color: ${p.color || '#e2e8f0'};"
+                                draggable="true" ondragstart="drag(event)" data-id="${p.id}" data-esp="${slot.especialidad || ''}">
+                                <div class="truncate-text">${p.nombre}${subtexto}</div>
+                            </td>`;
                         }
-                    } else { html += `<td class="slot-vacio">Error (Dr. Borrado)</td>`; }
+                    } else {
+                        html += `<td class="slot-vacio">Error (Dr. Borrado)</td>`;
+                    }
                 } else {
                     html += `<td class="slot-vacio celda-drop" ondragover="allowDrop(event)" ondrop="drop(event,'${c.id}','${h}')">Libre</td>`;
                 }
@@ -384,14 +418,81 @@ function dibujarAgenda(consultorios, agenda, profesionales, ausencias, dia, sect
     document.getElementById("main-content").innerHTML = html;
 }
 
-function drag(ev) { ev.dataTransfer.setData("id", ev.target.dataset.id); }
+/* --- LOGICA DOBLE LISTA Y GUARDADO --- */
+function manejarCambioProfesional(c_id, h_str) {
+    const profId = document.getElementById(`prof_${c_id}_${h_str}`).value;
+    const selectEsp = document.getElementById(`esp_${c_id}_${h_str}`);
+
+    if (!profId) {
+        selectEsp.style.display = 'none';
+        selectEsp.innerHTML = '';
+        guardarTurnoFinal(c_id, h_str);
+        return;
+    }
+
+    const prof = listaProfesionalesGlobal.find(p => p.id === profId);
+    if (prof && prof.especialidades) {
+        const esps = prof.especialidades.split(',').map(e => e.trim());
+        if (esps.length > 1) {
+            selectEsp.innerHTML = `<option value="">- Seleccionar Especialidad -</option>` + esps.map(e => `<option value="${e}">${e}</option>`).join('');
+            selectEsp.style.display = 'block';
+        } else {
+            selectEsp.style.display = 'none';
+            selectEsp.innerHTML = `<option value="${esps[0]}">${esps[0]}</option>`;
+        }
+    } else {
+        selectEsp.style.display = 'none';
+        selectEsp.innerHTML = '';
+    }
+    
+    // Guardamos el cambio base
+    guardarTurnoFinal(c_id, h_str);
+}
+
+async function guardarTurnoFinal(c_id, h_str) {
+    const profId = document.getElementById(`prof_${c_id}_${h_str}`).value;
+    const selectEsp = document.getElementById(`esp_${c_id}_${h_str}`);
+    
+    let espVal = null;
+    if (profId && selectEsp && selectEsp.options.length > 0) {
+        espVal = selectEsp.style.display === 'none' ? selectEsp.options[0].value : selectEsp.value;
+    }
+
+    const dia = document.getElementById("dia").value;
+    const sector = document.getElementById("sector").value;
+
+    await fetch("/agenda", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            consultorio_id: c_id,
+            profesional_id: profId || null,
+            especialidad: espVal || null,
+            horario: h_str.replace('_', ':'),
+            dia_semana: dia,
+            sector
+        })
+    });
+}
+
+function drag(ev) { 
+    ev.dataTransfer.setData("id", ev.target.dataset.id); 
+    ev.dataTransfer.setData("esp", ev.target.dataset.esp); 
+}
 function allowDrop(ev) { ev.preventDefault(); }
 async function drop(ev, consultorio, horario) {
     ev.preventDefault();
     let id = ev.dataTransfer.getData("id");
+    let esp = ev.dataTransfer.getData("esp");
     if (!id) return;
+    
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
-    await fetch("/agenda", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ consultorio_id: consultorio, profesional_id: id, especialidad: null, horario, dia_semana: dia, sector }) });
+
+    await fetch("/agenda", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ consultorio_id: consultorio, profesional_id: id, especialidad: esp || null, horario: horario, dia_semana: dia, sector })
+    });
     verAgenda();
 }
