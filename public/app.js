@@ -1,14 +1,20 @@
 let modo = "ver";
 let esRegistro = false;
 let datosUsuario = null;
-let listaProfesionalesGlobal = []; // Para usar en la agenda
+let listaProfesionalesGlobal = [];
 
-// Inicialización
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('input').forEach(input => {
         input.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') procesarFormulario();
         });
+    });
+
+    // Cierra todos los menús personalizados si se hace clic afuera de ellos
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.custom-select-container')) {
+            document.querySelectorAll('.custom-dropdown-menu').forEach(m => m.style.display = 'none');
+        }
     });
 });
 
@@ -17,8 +23,8 @@ function toggleModoFormulario() {
     esRegistro = !esRegistro;
     document.getElementById("form-title").innerText = esRegistro ? "Crear Cuenta" : "Ingreso al Sistema";
     document.getElementById("btn-submit").innerText = esRegistro ? "Solicitar Cuenta" : "Ingresar";
-    document.getElementById("toggle-text").innerHTML = esRegistro 
-        ? '¿Ya tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Ingresar</a>' 
+    document.getElementById("toggle-text").innerHTML = esRegistro
+        ? '¿Ya tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Ingresar</a>'
         : '¿No tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Solicitar acceso</a>';
     document.getElementById("error-msg").innerText = "";
     document.getElementById("success-msg").innerText = "";
@@ -30,14 +36,12 @@ async function procesarFormulario() {
     const errorMsg = document.getElementById("error-msg");
     const successMsg = document.getElementById("success-msg");
     errorMsg.innerText = ""; successMsg.innerText = "";
-
     if (!email || !password) return errorMsg.innerText = "Completa todos los campos.";
-    
+
     const endpoint = esRegistro ? "/registro" : "/login";
     try {
         const res = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
+            method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password })
         });
         const data = await res.json();
@@ -45,15 +49,9 @@ async function procesarFormulario() {
             if (esRegistro) {
                 successMsg.innerText = "Solicitud enviada. Un administrador debe aprobarla.";
                 setTimeout(() => toggleModoFormulario(), 3000);
-            } else {
-                iniciarSesion(data.usuario);
-            }
-        } else {
-            errorMsg.innerText = data.error || "Ocurrió un error.";
-        }
-    } catch (err) {
-        errorMsg.innerText = "Error de conexión con el servidor.";
-    }
+            } else { iniciarSesion(data.usuario); }
+        } else { errorMsg.innerText = data.error || "Ocurrió un error."; }
+    } catch (err) { errorMsg.innerText = "Error de conexión con el servidor."; }
 }
 
 async function iniciarSesion(usuario) {
@@ -62,7 +60,7 @@ async function iniciarSesion(usuario) {
     document.getElementById("app").style.display = "flex";
     document.getElementById("user-email-display").innerText = usuario.email;
     document.getElementById("btn-panel").style.display = usuario.es_admin ? "block" : "none";
-    
+
     await cargarSectores();
     document.getElementById("titulo-seccion").innerText = "Bienvenido";
     document.getElementById("main-content").innerHTML = `
@@ -102,33 +100,27 @@ async function cargarPanelControl() {
     actualizarBotonesMenu('btn-panel');
     document.getElementById("titulo-seccion").innerText = "Panel de Control de Usuarios";
     document.getElementById("filtros-container").style.display = "none";
-
     const res = await fetch("/usuarios/admin");
     const usuarios = await res.json();
-
     let html = `
-    <h3 style="margin-bottom:15px; color:var(--text-main);">Gestión de Accesos</h3>
-    <div class="card-table"><table>
+        <h3 style="margin-bottom:15px; color:var(--text-main);">Gestión de Accesos</h3>
+        <div class="card-table"><table>
         <tr><th>Email</th><th>Estado</th><th>Fecha Alta</th><th>Acciones</th></tr>`;
-
     if (usuarios.length === 0) {
         html += `<tr><td colspan="4" style="text-align:center">No hay usuarios en el sistema.</td></tr>`;
     } else {
         usuarios.forEach(u => {
             const fecha = new Date(u.creado_en).toLocaleDateString('es-ES');
-            const estado = u.activo 
-                ? `<span style="color:var(--success); font-weight:bold;">Activo</span>` 
+            const estado = u.activo
+                ? `<span style="color:var(--success); font-weight:bold;">Activo</span>`
                 : `<span style="color:#d97706; font-weight:bold;">Pendiente</span>`;
-            
-            const btnAprobar = !u.activo ? `<button class="accion-btn btn-save" style="margin-right:5px;" onclick="aprobarUsuario('${u.id}')">✅ Aprobar</button>` : '';
 
+            const btnAprobar = !u.activo ? `<button class="accion-btn btn-save" style="margin-right:5px;" onclick="aprobarUsuario('${u.id}')"> ✅  Aprobar</button>` : '';
             html += `<tr>
-                <td>${u.email}</td>
-                <td>${estado}</td>
-                <td>${fecha}</td>
+                <td>${u.email}</td><td>${estado}</td><td>${fecha}</td>
                 <td style="width: 200px;">
                     ${btnAprobar}
-                    <button class="accion-btn btn-delete" onclick="eliminarUsuario('${u.id}')">🗑️ Borrar</button>
+                    <button class="accion-btn btn-delete" onclick="eliminarUsuario('${u.id}')"> 🗑 ️ Borrar</button>
                 </td>
             </tr>`;
         });
@@ -144,7 +136,7 @@ async function aprobarUsuario(id) {
 }
 
 async function eliminarUsuario(id) {
-    if(!confirm("⚠️ ATENCIÓN: Esto borrará al usuario permanentemente y no podrá ingresar. ¿Estás seguro?")) return;
+    if(!confirm(" ⚠ ️ ATENCIÓN: Esto borrará al usuario permanentemente y no podrá ingresar. ¿Estás seguro?")) return;
     await fetch(`/usuarios/${id}`, { method: "DELETE" });
     cargarPanelControl();
 }
@@ -154,30 +146,27 @@ async function pantallaProfesionales() {
     actualizarBotonesMenu();
     document.getElementById("titulo-seccion").innerText = "Gestión de Profesionales";
     document.getElementById("filtros-container").style.display = "none";
-
     const [resProf, resAus] = await Promise.all([fetch("/profesionales"), fetch("/ausencias")]);
     const profesionales = await resProf.json();
     const ausencias = await resAus.json();
-
     let html = `
-    <div class="flex-row" style="align-items: flex-start;">
-        <div>
-            <input id="nuevoNombre" placeholder="Nombre del profesional..." style="margin:0; width:220px;">
+        <div class="flex-row" style="align-items: flex-start;">
+            <div>
+                <input id="nuevoNombre" placeholder="Nombre del profesional..." style="margin:0; width:220px;">
+            </div>
+            <div>
+                <input id="nuevasEsp" placeholder="Especialidades (Ej: Neuro, General)" style="margin:0; width:250px;">
+                <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">* Separa con comas ( , )</div>
+            </div>
+            <button class="btn-primary" style="width:auto; height: 42px;" onclick="agregarProfesional()">+ Añadir</button>
         </div>
-        <div>
-            <input id="nuevasEsp" placeholder="Especialidades (Ej: Neuro, General)" style="margin:0; width:250px;">
-            <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">* Separa con comas ( , )</div>
-        </div>
-        <button class="btn-primary" style="width:auto; height: 42px;" onclick="agregarProfesional()">+ Añadir</button>
-    </div>
-    <div class="card-table">
+        <div class="card-table">
         <table>
-            <tr><th style="width:60px;">Color</th><th>Nombre y Especialidades</th><th>Licencia (Desde - Hasta)</th><th style="width:170px;">Acciones</th></tr>`;
-
+        <tr><th style="width:60px;">Color</th><th>Nombre y Especialidades</th><th>Licencia (Desde - Hasta)</th><th style="width:170px;">Acciones</th></tr>`;
+    
     profesionales.forEach(p => {
         let licencia = ausencias.find(a => a.profesional_id === p.id) || { fecha_desde: '', fecha_hasta: '' };
         let especialidadesVista = p.especialidades ? p.especialidades.split(',').join(' <span style="color:#cbd5e1;">|</span> ') : '<span style="color:#94a3b8; font-size:12px;">Sin especialidad</span>';
-
         html += `
             <tr>
                 <td style="text-align:center;">
@@ -202,9 +191,9 @@ async function pantallaProfesionales() {
                     </div>
                 </td>
                 <td style="text-align:center;">
-                    <button id="btn_edit_${p.id}" class="accion-btn btn-primary" onclick="habilitarEdicionProf('${p.id}')">✏️ Editar</button>
-                    <button id="btn_save_${p.id}" class="accion-btn btn-save" style="display:none;" onclick="guardarEdicionProf('${p.id}')">💾 OK</button>
-                    <button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')">🗑️ Borrar</button>
+                    <button id="btn_edit_${p.id}" class="accion-btn btn-primary" onclick="habilitarEdicionProf('${p.id}')"> ✏ ️ Editar</button>
+                    <button id="btn_save_${p.id}" class="accion-btn btn-save" style="display:none;" onclick="guardarEdicionProf('${p.id}')"> 💾  OK</button>
+                    <button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')"> 🗑 ️ Borrar</button>
                 </td>
             </tr>`;
     });
@@ -217,8 +206,7 @@ async function agregarProfesional() {
     const especialidades = document.getElementById("nuevasEsp").value;
     if (!nombre) return alert("Ingrese un nombre");
     await fetch("/profesional", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre, especialidades })
     });
     pantallaProfesionales();
@@ -235,35 +223,26 @@ async function guardarEdicionProf(id) {
     const nombre = document.getElementById(`edit_nom_${id}`).value;
     const especialidades = document.getElementById(`edit_esp_${id}`).value;
     await fetch(`/profesional/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre, especialidades })
     });
     pantallaProfesionales();
 }
 
 async function cambiarColor(id, color) {
-    await fetch(`/profesional/${id}/color`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ color })
-    });
+    await fetch(`/profesional/${id}/color`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ color }) });
 }
 
 async function guardarLicencia(id) {
     const desde = document.getElementById("d_" + id).value;
     const hasta = document.getElementById("h_" + id).value;
-    await fetch("/licencia", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profesional_id: id, desde, hasta })
-    });
+    await fetch("/licencia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profesional_id: id, desde, hasta }) });
     alert("Licencia actualizada.");
     pantallaProfesionales();
 }
 
 async function eliminarProfesional(id) {
-    if (!confirm("⚠️ ATENCIÓN: Esto borrará al profesional y sus turnos. ¿Estás seguro?")) return;
+    if (!confirm(" ⚠ ️ ATENCIÓN: Esto borrará al profesional y sus turnos. ¿Estás seguro?")) return;
     await fetch(`/profesional/${id}`, { method: "DELETE" });
     pantallaProfesionales();
 }
@@ -296,19 +275,18 @@ function ejecutarBusqueda() { verAgenda(); }
 async function verAgenda() {
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
-
     const [resCons, resAg, resProf, resAus] = await Promise.all([
         fetch(`/consultorios?sector=${sector}`),
         fetch(`/agenda?dia=${dia}&sector=${sector}`),
         fetch(`/profesionales`),
         fetch(`/ausencias`)
     ]);
-    
+
     const consultorios = await resCons.json();
     const agenda = await resAg.json();
     listaProfesionalesGlobal = await resProf.json();
     const ausencias = await resAus.json();
-    
+
     dibujarAgenda(consultorios, agenda, ausencias, dia, sector);
 }
 
@@ -324,64 +302,76 @@ function estaEnLicencia(idProfesional, ausencias) {
 
 function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
     if(consultorios.length === 0) {
-        document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>No hay consultorios</h2></div>`;
-        return;
+        document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>No hay consultorios</h2></div>`; return;
     }
 
     let horarios = [];
-    for (let h = 8; h <= 19; h++) { // Extendido hasta las 19:00
+    for (let h = 8; h <= 19; h++) {
         horarios.push(`${String(h).padStart(2, "0")}:00`);
-        if(h !== 19) horarios.push(`${String(h).padStart(2, "0")}:30`); // Evita 19:30 si tu límite exacto es 19:00
+        if(h !== 19) horarios.push(`${String(h).padStart(2, "0")}:30`);
     }
 
     let html = `
-    <h3 style="margin-bottom:20px;">🗓️ Sector: ${sector} | Día: ${dia}</h3>
-    <div class="card-table" style="overflow-x: auto;">
+        <h3 style="margin-bottom:20px;"> 🗓 ️ Sector: ${sector} | Día: ${dia}</h3>
+        <div class="card-table" style="overflow-x: auto; overflow-y: visible;">
         <table class="tabla-agenda">
-            <tr><th style="width:70px;">Hora</th>`;
-
+        <tr><th style="width:70px;">Hora</th>`;
     consultorios.forEach(c => { html += `<th>Cons. ${c.numero}</th>`; });
     html += "</tr>";
 
     horarios.forEach(h => {
-        let h_str = h.replace(':', '_'); // Para IDs limpios
+        let h_str = h.replace(':', '_'); 
         html += `<tr><td><strong>${h}</strong></td>`;
-        
+
         consultorios.forEach(c => {
             let slot = agenda.find(a => a.horario == h && a.consultorio_id == c.id);
 
             if (modo === "editar") {
-                let optionsProf = `<option value="">- Libre -</option>`;
-                listaProfesionalesGlobal.forEach(p => {
-                    const lic = estaEnLicencia(p.id, ausencias);
-                    const label = lic ? `${p.nombre} (LICENCIA)` : p.nombre;
-                    optionsProf += `<option value="${p.id}" ${slot && slot.profesional_id == p.id ? "selected" : ""}>${label}</option>`;
-                });
-
-                // Analizar si necesita mostrar la segunda lista al dibujar
-                let displayEsp = 'none';
-                let optionsEsp = '';
+                // Generar texto visible inicial
+                let selectedText = "- Libre -";
                 if (slot && slot.profesional_id) {
-                    let prof = listaProfesionalesGlobal.find(p => p.id === slot.profesional_id);
-                    if (prof && prof.especialidades) {
-                        let esps = prof.especialidades.split(',').map(e => e.trim());
-                        if (esps.length > 1) {
-                            displayEsp = 'block';
-                            optionsEsp = `<option value="">- Especialidad -</option>` + esps.map(e => `<option value="${e}" ${slot.especialidad === e ? "selected" : ""}>${e}</option>`).join('');
-                        } else {
-                            optionsEsp = `<option value="${esps[0]}">${esps[0]}</option>`;
-                        }
+                    let p = listaProfesionalesGlobal.find(x => x.id === slot.profesional_id);
+                    if (p) {
+                        let lic = estaEnLicencia(p.id, ausencias);
+                        if (lic && lic.activa) selectedText = `${p.nombre} (LICENCIA)`;
+                        else selectedText = slot.especialidad ? `${p.nombre} - ${slot.especialidad}` : p.nombre;
                     }
                 }
 
-                html += `<td>
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <select class="select-agenda" id="prof_${c.id}_${h_str}" onchange="manejarCambioProfesional('${c.id}', '${h_str}')">
-                            ${optionsProf}
-                        </select>
-                        <select class="select-agenda" id="esp_${c.id}_${h_str}" style="display:${displayEsp}; font-size:11px; padding:4px;" onchange="guardarTurnoFinal('${c.id}', '${h_str}')">
-                            ${optionsEsp}
-                        </select>
+                // Construcción del menú flotante HTML
+                let menuHtml = `<ul class="custom-dropdown-menu" id="menu_${c.id}_${h_str}" style="display:none;">`;
+                menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', null, null)">- Libre -</li>`;
+
+                listaProfesionalesGlobal.forEach(p => {
+                    let lic = estaEnLicencia(p.id, ausencias);
+                    let isLic = lic && lic.activa;
+                    let label = isLic ? `${p.nombre} (LIC)` : p.nombre;
+
+                    if (p.especialidades && !isLic) {
+                        let esps = p.especialidades.split(',').map(e => e.trim()).filter(e=>e);
+                        if (esps.length > 0) {
+                            menuHtml += `<li class="has-submenu">
+                                ${label} <span style="font-size:10px; color:#94a3b8;">▶</span>
+                                <ul class="custom-submenu">
+                                    ${esps.map(e => `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', '${e}')">${e}</li>`).join('')}
+                                </ul>
+                            </li>`;
+                        } else {
+                            menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', null)">${label}</li>`;
+                        }
+                    } else {
+                        // Si no tiene especialidades o está de licencia
+                        menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', null)">${label}</li>`;
+                    }
+                });
+                menuHtml += `</ul>`;
+
+                html += `<td style="vertical-align: top;">
+                    <div class="custom-select-container">
+                        <div class="custom-select-box" onclick="toggleCustomMenu('${c.id}_${h_str}', event)">
+                            ${selectedText}
+                        </div>
+                        ${menuHtml}
                     </div>
                 </td>`;
             } else {
@@ -391,12 +381,9 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
                     if(p) {
                         let lic = estaEnLicencia(p.id, ausencias);
                         let subtexto = slot.especialidad ? `<br><small style="color:#1e293b; opacity:0.8; font-size:10px;">${slot.especialidad}</small>` : '';
-
                         if (lic && lic.activa) {
                             html += `<td class="slot-licencia" style="background-color:#ffebeb; border-left: 4px solid red; font-size:0.75em; padding: 5px;">
-                                <strong>${p.nombre}</strong><br>
-                                <span style="color:red; font-weight:bold;">LICENCIA</span><br>
-                                <small style="color: #666;">${lic.texto}</small>
+                                <strong>${p.nombre}</strong><br><span style="color:red; font-weight:bold;">LICENCIA</span><br><small style="color: #666;">${lic.texto}</small>
                             </td>`;
                         } else {
                             html += `<td class="slot-ocupado celda-drop" style="background-color: ${p.color || '#e2e8f0'};"
@@ -418,66 +405,42 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
     document.getElementById("main-content").innerHTML = html;
 }
 
-/* --- LOGICA DOBLE LISTA Y GUARDADO --- */
-function manejarCambioProfesional(c_id, h_str) {
-    const profId = document.getElementById(`prof_${c_id}_${h_str}`).value;
-    const selectEsp = document.getElementById(`esp_${c_id}_${h_str}`);
-
-    if (!profId) {
-        selectEsp.style.display = 'none';
-        selectEsp.innerHTML = '';
-        guardarTurnoFinal(c_id, h_str);
-        return;
-    }
-
-    const prof = listaProfesionalesGlobal.find(p => p.id === profId);
-    if (prof && prof.especialidades) {
-        const esps = prof.especialidades.split(',').map(e => e.trim());
-        if (esps.length > 1) {
-            selectEsp.innerHTML = `<option value="">- Seleccionar Especialidad -</option>` + esps.map(e => `<option value="${e}">${e}</option>`).join('');
-            selectEsp.style.display = 'block';
-        } else {
-            selectEsp.style.display = 'none';
-            selectEsp.innerHTML = `<option value="${esps[0]}">${esps[0]}</option>`;
-        }
-    } else {
-        selectEsp.style.display = 'none';
-        selectEsp.innerHTML = '';
-    }
-    
-    // Guardamos el cambio base
-    guardarTurnoFinal(c_id, h_str);
+/* --- LOGICA MENÚ PERSONALIZADO AGENDA --- */
+function toggleCustomMenu(idStr, event) {
+    event.stopPropagation(); // Evita que el click del documento lo cierre al instante
+    // Cierra todos los otros menúes que estén abiertos
+    document.querySelectorAll('.custom-dropdown-menu').forEach(m => {
+        if (m.id !== `menu_${idStr}`) m.style.display = 'none';
+    });
+    const menu = document.getElementById(`menu_${idStr}`);
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
 }
 
-async function guardarTurnoFinal(c_id, h_str) {
-    const profId = document.getElementById(`prof_${c_id}_${h_str}`).value;
-    const selectEsp = document.getElementById(`esp_${c_id}_${h_str}`);
+async function seleccionarOpcionTurno(c_id, h_str, profId, especialidad) {
+    // Cerramos el menú
+    document.getElementById(`menu_${c_id}_${h_str}`).style.display = 'none';
     
-    let espVal = null;
-    if (profId && selectEsp && selectEsp.options.length > 0) {
-        espVal = selectEsp.style.display === 'none' ? selectEsp.options[0].value : selectEsp.value;
-    }
-
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
 
     await fetch("/agenda", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            consultorio_id: c_id,
-            profesional_id: profId || null,
-            especialidad: espVal || null,
-            horario: h_str.replace('_', ':'),
-            dia_semana: dia,
-            sector
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            consultorio_id: c_id, 
+            profesional_id: profId || null, 
+            especialidad: especialidad || null, 
+            horario: h_str.replace('_', ':'), 
+            dia_semana: dia, sector 
         })
     });
+    
+    verAgenda(); // Refresca automáticamente la grilla con los datos nuevos
 }
 
-function drag(ev) { 
-    ev.dataTransfer.setData("id", ev.target.dataset.id); 
-    ev.dataTransfer.setData("esp", ev.target.dataset.esp); 
+/* --- DRAG AND DROP --- */
+function drag(ev) {
+    ev.dataTransfer.setData("id", ev.target.dataset.id);
+    ev.dataTransfer.setData("esp", ev.target.dataset.esp);
 }
 function allowDrop(ev) { ev.preventDefault(); }
 async function drop(ev, consultorio, horario) {
@@ -485,13 +448,11 @@ async function drop(ev, consultorio, horario) {
     let id = ev.dataTransfer.getData("id");
     let esp = ev.dataTransfer.getData("esp");
     if (!id) return;
-    
+
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
-
     await fetch("/agenda", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ consultorio_id: consultorio, profesional_id: id, especialidad: esp || null, horario: horario, dia_semana: dia, sector })
     });
     verAgenda();
