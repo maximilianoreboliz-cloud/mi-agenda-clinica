@@ -43,34 +43,34 @@ app.post("/registro", async (req, res) => {
 });
 
 app.get("/usuarios/pendientes", async (req, res) => {
-  const { data, error } = await supabase
-    .from("usuarios")
-    .select("id, email, creado_en")
-    .eq("activo", false);
+  const { data, error } = await supabase.from("usuarios").select("id, email, creado_en").eq("activo", false);
+  if (error) return res.status(500).json(error);
+  res.json(data);
+});
 
+app.get("/usuarios/aprobados", async (req, res) => {
+  const { data, error } = await supabase.from("usuarios").select("id, email, creado_en, es_admin").eq("activo", true);
   if (error) return res.status(500).json(error);
   res.json(data);
 });
 
 app.patch("/usuarios/aprobar/:id", async (req, res) => {
   const { id } = req.params;
-  const { error } = await supabase
-    .from("usuarios")
-    .update({ activo: true })
-    .eq("id", id);
+  const { error } = await supabase.from("usuarios").update({ activo: true }).eq("id", id);
+  if (error) return res.status(500).json(error);
+  res.json({ success: true });
+});
 
+app.delete("/usuarios/:id", async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase.from("usuarios").delete().eq("id", id);
   if (error) return res.status(500).json(error);
   res.json({ success: true });
 });
 
 /* --- SECTORES --- */
 app.get("/sectores", async (req, res) => {
-  const { data, error } = await supabase
-    .from("sectores")
-    .select("*")
-    .eq("activo", true)
-    .order("nombre");
-
+  const { data, error } = await supabase.from("sectores").select("*").eq("activo", true).order("nombre");
   if (error) return res.status(500).json(error);
   res.json(data);
 });
@@ -88,21 +88,14 @@ app.get("/consultorios", async (req, res) => {
 
 /* --- PROFESIONALES --- */
 app.get("/profesionales", async (req, res) => {
-  const { data, error } = await supabase
-    .from("profesionales")
-    .select("*")
-    .order("nombre");
-
+  const { data, error } = await supabase.from("profesionales").select("*").order("nombre");
   if (error) return res.status(500).json(error);
   res.json(data);
 });
 
 app.post("/profesional", async (req, res) => {
-  const { nombre } = req.body;
-  const { error } = await supabase
-    .from("profesionales")
-    .insert({ nombre, activo: true, color: "#e2e8f0" });
-
+  const { nombre, especialidades } = req.body;
+  const { error } = await supabase.from("profesionales").insert({ nombre, especialidades, activo: true, color: "#e2e8f0" });
   if (error) return res.status(500).json(error);
   res.json({ success: true });
 });
@@ -110,11 +103,15 @@ app.post("/profesional", async (req, res) => {
 app.patch("/profesional/:id/color", async (req, res) => {
   const { id } = req.params;
   const { color } = req.body;
-  const { error } = await supabase
-    .from("profesionales")
-    .update({ color })
-    .eq("id", id);
+  const { error } = await supabase.from("profesionales").update({ color }).eq("id", id);
+  if (error) return res.status(500).json(error);
+  res.json({ success: true });
+});
 
+app.patch("/profesional/:id", async (req, res) => {
+  const { id } = req.params;
+  const { nombre, especialidades } = req.body;
+  const { error } = await supabase.from("profesionales").update({ nombre, especialidades }).eq("id", id);
   if (error) return res.status(500).json(error);
   res.json({ success: true });
 });
@@ -124,7 +121,6 @@ app.delete("/profesional/:id", async (req, res) => {
   await supabase.from("agenda_base").delete().eq("profesional_id", id);
   await supabase.from("ausencias").delete().eq("profesional_id", id);
   const { error } = await supabase.from("profesionales").delete().eq("id", id);
-
   if (error) return res.status(500).json(error);
   res.json({ success: true });
 });
@@ -132,19 +128,11 @@ app.delete("/profesional/:id", async (req, res) => {
 /* --- LICENCIAS --- */
 app.post("/licencia", async (req, res) => {
   const { profesional_id, desde, hasta } = req.body;
-
-  // 1. Borramos cualquier licencia anterior que tuviera este profesional
   await supabase.from("ausencias").delete().eq("profesional_id", profesional_id);
-
-  // 2. Si mandaste fechas nuevas, creamos la licencia actualizada
   if (desde && hasta) {
-      const { error } = await supabase
-        .from("ausencias")
-        .insert({ profesional_id, fecha_desde: desde, fecha_hasta: hasta });
-
+      const { error } = await supabase.from("ausencias").insert({ profesional_id, fecha_desde: desde, fecha_hasta: hasta });
       if (error) return res.status(500).json(error);
   }
-
   res.json({ success: true });
 });
 
@@ -157,35 +145,21 @@ app.get("/ausencias", async (req, res) => {
 /* --- AGENDA --- */
 app.get("/agenda", async (req, res) => {
   const { dia, sector } = req.query;
-  const { data, error } = await supabase
-    .from("agenda_base")
-    .select("*")
-    .eq("dia_semana", dia)
-    .eq("sector", sector);
-
+  const { data, error } = await supabase.from("agenda_base").select("*").eq("dia_semana", dia).eq("sector", sector);
   if (error) return res.status(500).json(error);
   res.json(data);
 });
 
 app.post("/agenda", async (req, res) => {
-  const { consultorio_id, profesional_id, horario, dia_semana, sector } = req.body;
+  const { consultorio_id, profesional_id, especialidad, horario, dia_semana, sector } = req.body;
   
   if (!profesional_id) {
-    const { error } = await supabase
-      .from("agenda_base")
-      .delete()
-      .eq("consultorio_id", consultorio_id)
-      .eq("horario", horario)
-      .eq("dia_semana", dia_semana)
-      .eq("sector", sector);
+    const { error } = await supabase.from("agenda_base").delete().eq("consultorio_id", consultorio_id).eq("horario", horario).eq("dia_semana", dia_semana).eq("sector", sector);
     if (error) return res.status(500).json(error);
     return res.json({ success: true });
   }
 
-  const { error } = await supabase
-    .from("agenda_base")
-    .upsert({ consultorio_id, profesional_id, horario, dia_semana, sector });
-
+  const { error } = await supabase.from("agenda_base").upsert({ consultorio_id, profesional_id, especialidad, horario, dia_semana, sector });
   if (error) return res.status(500).json(error);
   res.json({ success: true });
 });
