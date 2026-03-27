@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Cierra todos los menús personalizados si se hace clic afuera de ellos
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.custom-select-container')) {
             document.querySelectorAll('.custom-dropdown-menu').forEach(m => m.style.display = 'none');
@@ -105,7 +104,7 @@ async function cargarPanelControl() {
     let html = `
         <h3 style="margin-bottom:15px; color:var(--text-main);">Gestión de Accesos</h3>
         <div class="card-table"><table>
-        <tr><th>Email</th><th>Estado</th><th>Fecha Alta</th><th>Acciones</th></tr>`;
+        <tr><th>Email</th><th>Estado</th><th>Fecha Alta</th><th style="text-align:center;">Acciones</th></tr>`;
     if (usuarios.length === 0) {
         html += `<tr><td colspan="4" style="text-align:center">No hay usuarios en el sistema.</td></tr>`;
     } else {
@@ -115,12 +114,14 @@ async function cargarPanelControl() {
                 ? `<span style="color:var(--success); font-weight:bold;">Activo</span>`
                 : `<span style="color:#d97706; font-weight:bold;">Pendiente</span>`;
 
-            const btnAprobar = !u.activo ? `<button class="accion-btn btn-save" style="margin-right:5px;" onclick="aprobarUsuario('${u.id}')"> ✅  Aprobar</button>` : '';
+            const btnAprobar = !u.activo ? `<button class="accion-btn btn-save" onclick="aprobarUsuario('${u.id}')">Aprobar</button>` : '';
             html += `<tr>
                 <td>${u.email}</td><td>${estado}</td><td>${fecha}</td>
-                <td style="width: 200px;">
-                    ${btnAprobar}
-                    <button class="accion-btn btn-delete" onclick="eliminarUsuario('${u.id}')"> 🗑 ️ Borrar</button>
+                <td>
+                    <div class="acciones-container">
+                        ${btnAprobar}
+                        <button class="accion-btn btn-delete" onclick="eliminarUsuario('${u.id}')">Borrar</button>
+                    </div>
                 </td>
             </tr>`;
         });
@@ -136,7 +137,7 @@ async function aprobarUsuario(id) {
 }
 
 async function eliminarUsuario(id) {
-    if(!confirm(" ⚠ ️ ATENCIÓN: Esto borrará al usuario permanentemente y no podrá ingresar. ¿Estás seguro?")) return;
+    if(!confirm("¿Borrar usuario permanentemente?")) return;
     await fetch(`/usuarios/${id}`, { method: "DELETE" });
     cargarPanelControl();
 }
@@ -162,7 +163,7 @@ async function pantallaProfesionales() {
         </div>
         <div class="card-table">
         <table>
-        <tr><th style="width:60px;">Color</th><th>Nombre y Especialidades</th><th>Licencia (Desde - Hasta)</th><th style="width:170px;">Acciones</th></tr>`;
+        <tr><th style="width:60px;">Color</th><th>Nombre y Especialidades</th><th>Licencia (Desde - Hasta)</th><th style="text-align:center; width:220px;">Acciones</th></tr>`;
     
     profesionales.forEach(p => {
         let licencia = ausencias.find(a => a.profesional_id === p.id) || { fecha_desde: '', fecha_hasta: '' };
@@ -184,16 +185,18 @@ async function pantallaProfesionales() {
                 </td>
                 <td>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="date" id="d_${p.id}" value="${licencia.fecha_desde}" style="margin:0; width:130px; font-size:12px;">
+                        <input type="date" id="d_${p.id}" value="${licencia.fecha_desde}" style="margin:0; width:125px; font-size:12px;">
                         <span>a</span>
-                        <input type="date" id="h_${p.id}" value="${licencia.fecha_hasta}" style="margin:0; width:130px; font-size:12px;">
-                        <button class="accion-btn btn-save" onclick="guardarLicencia('${p.id}')">Guardar</button>
+                        <input type="date" id="h_${p.id}" value="${licencia.fecha_hasta}" style="margin:0; width:125px; font-size:12px;">
+                        <button class="accion-btn btn-save" style="min-width:70px; height:30px;" onclick="guardarLicencia('${p.id}')">OK</button>
                     </div>
                 </td>
-                <td style="text-align:center;">
-                    <button id="btn_edit_${p.id}" class="accion-btn btn-primary" onclick="habilitarEdicionProf('${p.id}')"> ✏ ️ Editar</button>
-                    <button id="btn_save_${p.id}" class="accion-btn btn-save" style="display:none;" onclick="guardarEdicionProf('${p.id}')"> 💾  OK</button>
-                    <button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')"> 🗑 ️ Borrar</button>
+                <td>
+                    <div class="acciones-container">
+                        <button id="btn_edit_${p.id}" class="accion-btn btn-edit-action" onclick="habilitarEdicionProf('${p.id}')">Editar</button>
+                        <button id="btn_save_${p.id}" class="accion-btn btn-save" style="display:none;" onclick="guardarEdicionProf('${p.id}')">Guardar</button>
+                        <button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')">Borrar</button>
+                    </div>
                 </td>
             </tr>`;
     });
@@ -242,12 +245,12 @@ async function guardarLicencia(id) {
 }
 
 async function eliminarProfesional(id) {
-    if (!confirm(" ⚠ ️ ATENCIÓN: Esto borrará al profesional y sus turnos. ¿Estás seguro?")) return;
+    if (!confirm("¿Borrar profesional y sus turnos?")) return;
     await fetch(`/profesional/${id}`, { method: "DELETE" });
     pantallaProfesionales();
 }
 
-/* --- AGENDA (VER Y MODIFICAR) --- */
+/* --- AGENDA --- */
 function pantallaVerAgenda() {
     modo = "ver";
     actualizarBotonesMenu('btn-ver');
@@ -263,11 +266,7 @@ function pantallaModificarAgenda() {
 function prepararVistaAgenda(titulo) {
     document.getElementById("titulo-seccion").innerText = titulo;
     document.getElementById("filtros-container").style.display = "block";
-    document.getElementById("main-content").innerHTML = `
-        <div class="empty-state">
-            <h2>Selecciona Día y Sector</h2>
-            <p>Luego presiona el botón "Buscar" para cargar la grilla.</p>
-        </div>`;
+    document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>Selecciona Día y Sector</h2></div>`;
 }
 
 function ejecutarBusqueda() { verAgenda(); }
@@ -281,12 +280,10 @@ async function verAgenda() {
         fetch(`/profesionales`),
         fetch(`/ausencias`)
     ]);
-
     const consultorios = await resCons.json();
     const agenda = await resAg.json();
     listaProfesionalesGlobal = await resProf.json();
     const ausencias = await resAus.json();
-
     dibujarAgenda(consultorios, agenda, ausencias, dia, sector);
 }
 
@@ -304,15 +301,13 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
     if(consultorios.length === 0) {
         document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>No hay consultorios</h2></div>`; return;
     }
-
     let horarios = [];
     for (let h = 8; h <= 19; h++) {
         horarios.push(`${String(h).padStart(2, "0")}:00`);
         if(h !== 19) horarios.push(`${String(h).padStart(2, "0")}:30`);
     }
 
-    let html = `
-        <h3 style="margin-bottom:20px;"> 🗓 ️ Sector: ${sector} | Día: ${dia}</h3>
+    let html = `<h3 style="margin-bottom:20px;"> Sector: ${sector} | Día: ${dia}</h3>
         <div class="card-table" style="overflow-x: auto; overflow-y: visible;">
         <table class="tabla-agenda">
         <tr><th style="width:70px;">Hora</th>`;
@@ -322,81 +317,46 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
     horarios.forEach(h => {
         let h_str = h.replace(':', '_'); 
         html += `<tr><td><strong>${h}</strong></td>`;
-
         consultorios.forEach(c => {
             let slot = agenda.find(a => a.horario == h && a.consultorio_id == c.id);
-
             if (modo === "editar") {
-                // Generar texto visible inicial
                 let selectedText = "- Libre -";
                 if (slot && slot.profesional_id) {
                     let p = listaProfesionalesGlobal.find(x => x.id === slot.profesional_id);
                     if (p) {
                         let lic = estaEnLicencia(p.id, ausencias);
-                        if (lic && lic.activa) selectedText = `${p.nombre} (LICENCIA)`;
+                        if (lic && lic.activa) selectedText = `${p.nombre} (LIC)`;
                         else selectedText = slot.especialidad ? `${p.nombre} - ${slot.especialidad}` : p.nombre;
                     }
                 }
-
-                // Construcción del menú flotante HTML
                 let menuHtml = `<ul class="custom-dropdown-menu" id="menu_${c.id}_${h_str}" style="display:none;">`;
                 menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', null, null)">- Libre -</li>`;
-
                 listaProfesionalesGlobal.forEach(p => {
                     let lic = estaEnLicencia(p.id, ausencias);
                     let isLic = lic && lic.activa;
                     let label = isLic ? `${p.nombre} (LIC)` : p.nombre;
-
                     if (p.especialidades && !isLic) {
                         let esps = p.especialidades.split(',').map(e => e.trim()).filter(e=>e);
                         if (esps.length > 0) {
-                            menuHtml += `<li class="has-submenu">
-                                ${label} <span style="font-size:10px; color:#94a3b8;">▶</span>
-                                <ul class="custom-submenu">
-                                    ${esps.map(e => `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', '${e}')">${e}</li>`).join('')}
-                                </ul>
-                            </li>`;
-                        } else {
-                            menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', null)">${label}</li>`;
-                        }
-                    } else {
-                        // Si no tiene especialidades o está de licencia
-                        menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', null)">${label}</li>`;
-                    }
+                            menuHtml += `<li class="has-submenu">${label} <span>▶</span><ul class="custom-submenu">${esps.map(e => `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', '${e}')">${e}</li>`).join('')}</ul></li>`;
+                        } else { menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', null)">${label}</li>`; }
+                    } else { menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', null)">${label}</li>`; }
                 });
                 menuHtml += `</ul>`;
-
-                html += `<td style="vertical-align: top;">
-                    <div class="custom-select-container">
-                        <div class="custom-select-box" onclick="toggleCustomMenu('${c.id}_${h_str}', event)">
-                            ${selectedText}
-                        </div>
-                        ${menuHtml}
-                    </div>
-                </td>`;
+                html += `<td style="vertical-align: top;"><div class="custom-select-container"><div class="custom-select-box" onclick="toggleCustomMenu('${c.id}_${h_str}', event)">${selectedText}</div>${menuHtml}</div></td>`;
             } else {
-                // Modo VER
                 if (slot && slot.profesional_id) {
                     let p = listaProfesionalesGlobal.find(x => x.id == slot.profesional_id);
                     if(p) {
                         let lic = estaEnLicencia(p.id, ausencias);
-                        let subtexto = slot.especialidad ? `<br><small style="color:#1e293b; opacity:0.8; font-size:10px;">${slot.especialidad}</small>` : '';
+                        let subtexto = slot.especialidad ? `<br><small style="opacity:0.8; font-size:10px;">${slot.especialidad}</small>` : '';
                         if (lic && lic.activa) {
-                            html += `<td class="slot-licencia" style="background-color:#ffebeb; border-left: 4px solid red; font-size:0.75em; padding: 5px;">
-                                <strong>${p.nombre}</strong><br><span style="color:red; font-weight:bold;">LICENCIA</span><br><small style="color: #666;">${lic.texto}</small>
-                            </td>`;
+                            html += `<td class="slot-licencia" style="background-color:#ffebeb; border-left: 4px solid red; font-size:0.75em;"><strong>${p.nombre}</strong><br>LICENCIA</td>`;
                         } else {
-                            html += `<td class="slot-ocupado celda-drop" style="background-color: ${p.color || '#e2e8f0'};"
-                                draggable="true" ondragstart="drag(event)" data-id="${p.id}" data-esp="${slot.especialidad || ''}">
-                                <div class="truncate-text">${p.nombre}${subtexto}</div>
-                            </td>`;
+                            html += `<td class="slot-ocupado celda-drop" style="background-color: ${p.color || '#e2e8f0'};" draggable="true" ondragstart="drag(event)" data-id="${p.id}" data-esp="${slot.especialidad || ''}"><div class="truncate-text">${p.nombre}${subtexto}</div></td>`;
                         }
-                    } else {
-                        html += `<td class="slot-vacio">Error (Dr. Borrado)</td>`;
-                    }
-                } else {
-                    html += `<td class="slot-vacio celda-drop" ondragover="allowDrop(event)" ondrop="drop(event,'${c.id}','${h}')">Libre</td>`;
-                }
+                    } else { html += `<td class="slot-vacio">Error</td>`; }
+                } else { html += `<td class="slot-vacio celda-drop" ondragover="allowDrop(event)" ondrop="drop(event,'${c.id}','${h}')">Libre</td>`; }
             }
         });
         html += "</tr>";
@@ -405,55 +365,30 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
     document.getElementById("main-content").innerHTML = html;
 }
 
-/* --- LOGICA MENÚ PERSONALIZADO AGENDA --- */
 function toggleCustomMenu(idStr, event) {
-    event.stopPropagation(); // Evita que el click del documento lo cierre al instante
-    // Cierra todos los otros menúes que estén abiertos
-    document.querySelectorAll('.custom-dropdown-menu').forEach(m => {
-        if (m.id !== `menu_${idStr}`) m.style.display = 'none';
-    });
+    event.stopPropagation();
+    document.querySelectorAll('.custom-dropdown-menu').forEach(m => { if (m.id !== `menu_${idStr}`) m.style.display = 'none'; });
     const menu = document.getElementById(`menu_${idStr}`);
     menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
 }
 
 async function seleccionarOpcionTurno(c_id, h_str, profId, especialidad) {
-    // Cerramos el menú
     document.getElementById(`menu_${c_id}_${h_str}`).style.display = 'none';
-    
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
-
-    await fetch("/agenda", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            consultorio_id: c_id, 
-            profesional_id: profId || null, 
-            especialidad: especialidad || null, 
-            horario: h_str.replace('_', ':'), 
-            dia_semana: dia, sector 
-        })
-    });
-    
-    verAgenda(); // Refresca automáticamente la grilla con los datos nuevos
+    await fetch("/agenda", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ consultorio_id: c_id, profesional_id: profId || null, especialidad: especialidad || null, horario: h_str.replace('_', ':'), dia_semana: dia, sector }) });
+    verAgenda();
 }
 
-/* --- DRAG AND DROP --- */
-function drag(ev) {
-    ev.dataTransfer.setData("id", ev.target.dataset.id);
-    ev.dataTransfer.setData("esp", ev.target.dataset.esp);
-}
+function drag(ev) { ev.dataTransfer.setData("id", ev.target.dataset.id); ev.dataTransfer.setData("esp", ev.target.dataset.esp); }
 function allowDrop(ev) { ev.preventDefault(); }
 async function drop(ev, consultorio, horario) {
     ev.preventDefault();
     let id = ev.dataTransfer.getData("id");
     let esp = ev.dataTransfer.getData("esp");
     if (!id) return;
-
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
-    await fetch("/agenda", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ consultorio_id: consultorio, profesional_id: id, especialidad: esp || null, horario: horario, dia_semana: dia, sector })
-    });
+    await fetch("/agenda", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ consultorio_id: consultorio, profesional_id: id, especialidad: esp || null, horario: horario, dia_semana: dia, sector }) });
     verAgenda();
 }
