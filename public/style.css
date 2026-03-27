@@ -9,6 +9,7 @@
     --danger: #ef4444;
     --danger-hover: #dc2626;
     --success: #10b981;
+    --success-hover: #059669;
 }
 * {
     margin: 0;
@@ -196,13 +197,35 @@ td {
 }
 .has-submenu:hover .custom-submenu { display: block; }
 
-/* CONTROLES PROFESIONALES */
+/* BOTONES DE ACCIÓN PULIDOS */
+.acciones-container {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+}
 .accion-btn {
-    padding: 6px 12px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;
+    min-width: 90px; /* Ancho fijo para consistencia */
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    padding: 0 12px;
 }
 .btn-save { background: var(--success); color: white; }
+.btn-save:hover { background: var(--success-hover); transform: translateY(-1px); }
 .btn-delete { background: var(--danger); color: white; }
-.btn-delete:hover { background: var(--danger-hover); }
+.btn-delete:hover { background: var(--danger-hover); transform: translateY(-1px); }
+.btn-edit-action { background: var(--primary); color: white; }
+.btn-edit-action:hover { background: var(--primary-hover); transform: translateY(-1px); }
+
+/* MISCELÁNEOS */
 .flex-row { display: flex; gap: 15px; align-items: center; margin-bottom: 20px; }
 .color-picker { width: 40px; height: 40px; border: none; border-radius: 50%; cursor: pointer; padding: 0; overflow: hidden; }
 .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
