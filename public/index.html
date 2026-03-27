@@ -1,82 +1,74 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agenda Hospitalaria</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Hospitalaria</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="login-container">
+<div class="login-card">
+<h2 id="form-title">Ingreso al Sistema</h2>
+<p class="subtitle">Gestión de Agenda Clínica</p>
 
-    <div id="login-container">
-        <div class="login-card">
-            <h2 id="form-title">Ingreso al Sistema</h2>
-            <p class="subtitle">Gestión de Agenda Clínica</p>
-            
-            <input id="email" type="email" placeholder="Correo electrónico" required>
-            <input id="password" type="password" placeholder="Contraseña" required>
-            
-            <button id="btn-submit" class="btn-primary" onclick="procesarFormulario()">Ingresar</button>
-            <p id="error-msg"></p>
-            <p id="success-msg"></p>
+<input id="email" type="email" placeholder="Correo electrónico" required>
+<input id="password" type="password" placeholder="Contraseña" required>
 
-            <div class="toggle-form">
-                <span id="toggle-text">¿No tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Solicitar acceso</a></span>
-            </div>
-        </div>
-    </div>
+<button id="btn-submit" class="btn-primary" onclick="procesarFormulario()">Ingresar</button>
+<p id="error-msg"></p>
+<p id="success-msg"></p>
+<div class="toggle-form">
+<span id="toggle-text">¿No tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Solicitar acceso</a></span>
+</div>
+</div>
+</div>
+<div id="app" style="display:none">
+<aside class="sidebar">
+<div class="sidebar-header">
+<h2>⚕️ Agenda C.P.P.R</h2>
+</div>
+<nav class="sidebar-nav">
+<button onclick="pantallaVerAgenda()" id="btn-ver">👁️ Ver Agenda</button>
+<button onclick="pantallaModificarAgenda()" id="btn-editar">✏️ Modificar Agenda</button>
+<button onclick="pantallaProfesionales()">🩺 Profesionales</button>
+<button onclick="cargarPanelControl()" id="btn-panel" style="display:none">⚙️ Panel de Control</button>
+</nav>
 
-    <div id="app" style="display:none">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h2>⚕️ Agenda C.P.P.R</h2>
-            </div>
-            <nav class="sidebar-nav">
-                <button onclick="pantallaVerAgenda()" id="btn-ver">👁️ Ver Agenda</button>
-                <button onclick="pantallaModificarAgenda()" id="btn-editar">✏️ Modificar Agenda</button>
-                <button onclick="pantallaProfesionales()">🩺 Profesionales</button>
-                <button onclick="cargarPanelControl()" id="btn-panel" style="display:none">⚙️ Panel de Control</button>
-            </nav>
-            
-            <div class="filtros-agenda" id="filtros-container">
-                <h3>Filtros de Búsqueda</h3>
-                <label for="dia">Día de la semana</label>
-                <select id="dia">
-                    <option value="Lunes">Lunes</option>
-                    <option value="Martes">Martes</option>
-                    <option value="Miércoles">Miércoles</option>
-                    <option value="Jueves">Jueves</option>
-                    <option value="Viernes">Viernes</option>
-                </select>
-
-                <label for="sector">Sector Médico</label>
-                <select id="sector"></select>
-
-                <button class="btn-primary" onclick="ejecutarBusqueda()">🔍 Buscar</button>
-            </div>
-
-            <div class="sidebar-footer">
-                <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión</button>
-            </div>
-        </aside>
-
-        <main class="content">
-            <header class="topbar">
-                <h1 id="titulo-seccion">Bienvenido</h1>
-                <div class="user-info">
-                    <span id="user-email-display">usuario@clinica.com</span>
-                </div>
-            </header>
-            <div id="main-content" class="main-body">
-                <div class="empty-state">
-                    <h2>Selecciona una opción del menú</h2>
-                    <p>Utiliza los filtros de la izquierda para buscar la agenda.</p>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <script src="app.js"></script>
+<div class="filtros-agenda" id="filtros-container">
+<h3>Filtros de Búsqueda</h3>
+<label for="dia">Día de la semana</label>
+<select id="dia">
+<option value="Lunes">Lunes</option>
+<option value="Martes">Martes</option>
+<option value="Miércoles">Miércoles</option>
+<option value="Jueves">Jueves</option>
+<option value="Viernes">Viernes</option>
+</select>
+<label for="sector">Sector Médico</label>
+<select id="sector"></select>
+<button class="btn-primary" onclick="ejecutarBusqueda()">🔍 Buscar</button>
+</div>
+<div class="sidebar-footer">
+<button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión</button>
+</div>
+</aside>
+<main class="content">
+<header class="topbar">
+<h1 id="titulo-seccion">Bienvenido</h1>
+<div class="user-info">
+<span id="user-email-display">usuario@clinica.com</span>
+</div>
+</header>
+<div id="main-content" class="main-body">
+<div class="empty-state">
+<h2>Selecciona una opción del menú</h2>
+<p>Utiliza los filtros de la izquierda para buscar la agenda.</p>
+</div>
+</div>
+</main>
+</div>
+<script src="app.js"></script>
 </body>
 </html>
