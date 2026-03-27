@@ -122,6 +122,7 @@ async function borrarUsuario(id) {
 }
 
 /* --- PROFESIONALES --- */
+/* --- PROFESIONALES --- */
 async function pantallaProfesionales() {
     actualizarBotonesMenu();
     document.getElementById("titulo-seccion").innerText = "Gestión de Profesionales y Especialidades";
@@ -133,10 +134,17 @@ async function pantallaProfesionales() {
     const ausencias = await resAus.json();
 
     let html = `
-    <div class="flex-row" style="flex-wrap: wrap;">
-        <input id="nuevoNombre" placeholder="Nombre del médico..." style="margin:0; width:250px;">
-        <input id="nuevasEsp" placeholder="Especialidades (ej: Neurología, General)..." style="margin:0; width:300px;">
-        <button class="btn-primary" style="width:auto;" onclick="agregarProfesional()">+ Añadir</button>
+    <div class="flex-row" style="flex-wrap: wrap; align-items: flex-start;">
+        <div>
+            <input id="nuevoNombre" placeholder="Nombre del médico..." style="margin:0; width:250px;">
+        </div>
+        <div>
+            <input id="nuevasEsp" placeholder="Ej: Neurología, General..." style="margin:0; width:300px;">
+            <div style="color:var(--text-muted); font-size:11px; margin-top:4px; font-weight:500;">
+                * Separa las especialidades con una coma ( , )
+            </div>
+        </div>
+        <button class="btn-primary" style="width:auto; height: 42px;" onclick="agregarProfesional()">+ Añadir</button>
     </div>
     <div class="card-table">
         <table>
@@ -144,7 +152,11 @@ async function pantallaProfesionales() {
 
     profesionales.forEach(p => {
         let licencia = ausencias.find(a => a.profesional_id === p.id) || { fecha_desde: '', fecha_hasta: '' };
-        let especialidadesText = p.especialidades ? p.especialidades : '<em style="color:#94a3b8; font-size:12px;">Sin especialidad cargada</em>';
+        
+        // Transformamos las comas en " | " solo para la vista estética de la tabla
+        let especialidadesVisuales = p.especialidades 
+            ? p.especialidades.split(',').map(e => e.trim()).join(' <span style="color:#cbd5e1;">|</span> ') 
+            : '<em style="color:#94a3b8; font-size:12px;">Sin especialidad cargada</em>';
         
         html += `
             <tr id="row_${p.id}">
@@ -152,11 +164,12 @@ async function pantallaProfesionales() {
                 <td>
                     <div id="vista_datos_${p.id}">
                         <strong>${p.nombre}</strong><br>
-                        <small style="color:var(--primary);">${especialidadesText}</small>
+                        <small style="color:var(--primary); font-weight:600;">${especialidadesVisuales}</small>
                     </div>
                     <div id="edit_datos_${p.id}" style="display:none; flex-direction:column; gap:5px;">
                         <input id="edit_nom_${p.id}" value="${p.nombre}" style="margin:0; padding:6px; font-size:14px;">
-                        <input id="edit_esp_${p.id}" value="${p.especialidades || ''}" placeholder="Especialidades..." style="margin:0; padding:6px; font-size:12px;">
+                        <input id="edit_esp_${p.id}" value="${p.especialidades || ''}" placeholder="Ej: Neurología, General" style="margin:0; padding:6px; font-size:12px;">
+                        <small style="color:var(--text-muted); font-size:10px; margin-top:-3px;">* Separa las especialidades con comas (,)</small>
                     </div>
                 </td>
                 <td>
