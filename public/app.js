@@ -22,8 +22,8 @@ function toggleModoFormulario() {
     esRegistro = !esRegistro;
     document.getElementById("form-title").innerText = esRegistro ? "Crear Cuenta" : "Ingreso al Sistema";
     document.getElementById("btn-submit").innerText = esRegistro ? "Solicitar Cuenta" : "Ingresar";
-    document.getElementById("toggle-text").innerHTML = esRegistro
-        ? '¿Ya tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Ingresar</a>'
+    document.getElementById("toggle-text").innerHTML = esRegistro 
+        ? '¿Ya tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Ingresar</a>' 
         : '¿No tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Solicitar acceso</a>';
     document.getElementById("error-msg").innerText = "";
     document.getElementById("success-msg").innerText = "";
@@ -35,8 +35,9 @@ async function procesarFormulario() {
     const errorMsg = document.getElementById("error-msg");
     const successMsg = document.getElementById("success-msg");
     errorMsg.innerText = ""; successMsg.innerText = "";
-    if (!email || !password) return errorMsg.innerText = "Completa todos los campos.";
 
+    if (!email || !password) return errorMsg.innerText = "Completa todos los campos.";
+    
     const endpoint = esRegistro ? "/registro" : "/login";
     try {
         const res = await fetch(endpoint, {
@@ -59,7 +60,6 @@ async function iniciarSesion(usuario) {
     document.getElementById("app").style.display = "flex";
     document.getElementById("user-email-display").innerText = usuario.email;
     document.getElementById("btn-panel").style.display = usuario.es_admin ? "block" : "none";
-
     await cargarSectores();
     document.getElementById("titulo-seccion").innerText = "Bienvenido";
     document.getElementById("main-content").innerHTML = `
@@ -105,15 +105,15 @@ async function cargarPanelControl() {
         <h3 style="margin-bottom:15px; color:var(--text-main);">Gestión de Accesos</h3>
         <div class="card-table"><table>
         <tr><th>Email</th><th>Estado</th><th>Fecha Alta</th><th style="text-align:center;">Acciones</th></tr>`;
+    
     if (usuarios.length === 0) {
         html += `<tr><td colspan="4" style="text-align:center">No hay usuarios en el sistema.</td></tr>`;
     } else {
         usuarios.forEach(u => {
             const fecha = new Date(u.creado_en).toLocaleDateString('es-ES');
-            const estado = u.activo
-                ? `<span style="color:var(--success); font-weight:bold;">Activo</span>`
+            const estado = u.activo 
+                ? `<span style="color:var(--success); font-weight:bold;">Activo</span>` 
                 : `<span style="color:#d97706; font-weight:bold;">Pendiente</span>`;
-
             const btnAprobar = !u.activo ? `<button class="accion-btn btn-save" onclick="aprobarUsuario('${u.id}')">Aprobar</button>` : '';
             html += `<tr>
                 <td>${u.email}</td><td>${estado}</td><td>${fecha}</td>
@@ -150,11 +150,10 @@ async function pantallaProfesionales() {
     const [resProf, resAus] = await Promise.all([fetch("/profesionales"), fetch("/ausencias")]);
     const profesionales = await resProf.json();
     const ausencias = await resAus.json();
+    
     let html = `
         <div class="flex-row" style="align-items: flex-start;">
-            <div>
-                <input id="nuevoNombre" placeholder="Nombre del profesional..." style="margin:0; width:220px;">
-            </div>
+            <div><input id="nuevoNombre" placeholder="Nombre del profesional..." style="margin:0; width:220px;"></div>
             <div>
                 <input id="nuevasEsp" placeholder="Especialidades (Ej: Neuro, General)" style="margin:0; width:250px;">
                 <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">* Separa con comas ( , )</div>
@@ -164,41 +163,41 @@ async function pantallaProfesionales() {
         <div class="card-table">
         <table>
         <tr><th style="width:60px;">Color</th><th>Nombre y Especialidades</th><th>Licencia (Desde - Hasta)</th><th style="text-align:center; width:220px;">Acciones</th></tr>`;
-    
+
     profesionales.forEach(p => {
         let licencia = ausencias.find(a => a.profesional_id === p.id) || { fecha_desde: '', fecha_hasta: '' };
         let especialidadesVista = p.especialidades ? p.especialidades.split(',').join(' <span style="color:#cbd5e1;">|</span> ') : '<span style="color:#94a3b8; font-size:12px;">Sin especialidad</span>';
         html += `
-            <tr>
-                <td style="text-align:center;">
-                    <input type="color" class="color-picker" id="c_${p.id}" value="${p.color || '#e2e8f0'}" onchange="cambiarColor('${p.id}', this.value)">
-                </td>
-                <td>
-                    <div id="vista_datos_${p.id}">
-                        <strong>${p.nombre}</strong><br>
-                        <small style="color:var(--primary); font-weight:600;">${especialidadesVista}</small>
-                    </div>
-                    <div id="edit_datos_${p.id}" style="display:none; flex-direction:column; gap:5px;">
-                        <input id="edit_nom_${p.id}" value="${p.nombre}" style="margin:0; padding:6px; font-size:14px;">
-                        <input id="edit_esp_${p.id}" value="${p.especialidades || ''}" placeholder="Ej: Neurología, General" style="margin:0; padding:6px; font-size:12px;">
-                    </div>
-                </td>
-                <td>
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="date" id="d_${p.id}" value="${licencia.fecha_desde}" style="margin:0; width:125px; font-size:12px;">
-                        <span>a</span>
-                        <input type="date" id="h_${p.id}" value="${licencia.fecha_hasta}" style="margin:0; width:125px; font-size:12px;">
-                        <button class="accion-btn btn-save" style="min-width:70px; height:30px;" onclick="guardarLicencia('${p.id}')">OK</button>
-                    </div>
-                </td>
-                <td>
-                    <div class="acciones-container">
-                        <button id="btn_edit_${p.id}" class="accion-btn btn-edit-action" onclick="habilitarEdicionProf('${p.id}')">Editar</button>
-                        <button id="btn_save_${p.id}" class="accion-btn btn-save" style="display:none;" onclick="guardarEdicionProf('${p.id}')">Guardar</button>
-                        <button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')">Borrar</button>
-                    </div>
-                </td>
-            </tr>`;
+        <tr>
+            <td style="text-align:center;">
+                <input type="color" class="color-picker" id="c_${p.id}" value="${p.color || '#e2e8f0'}" onchange="cambiarColor('${p.id}', this.value)">
+            </td>
+            <td>
+                <div id="vista_datos_${p.id}">
+                    <strong>${p.nombre}</strong><br>
+                    <small style="color:var(--primary); font-weight:600;">${especialidadesVista}</small>
+                </div>
+                <div id="edit_datos_${p.id}" style="display:none; flex-direction:column; gap:5px;">
+                    <input id="edit_nom_${p.id}" value="${p.nombre}" style="margin:0; padding:6px; font-size:14px;">
+                    <input id="edit_esp_${p.id}" value="${p.especialidades || ''}" placeholder="Ej: Neurología, General" style="margin:0; padding:6px; font-size:12px;">
+                </div>
+            </td>
+            <td>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <input type="date" id="d_${p.id}" value="${licencia.fecha_desde}" style="margin:0; width:125px; font-size:12px;">
+                    <span>a</span>
+                    <input type="date" id="h_${p.id}" value="${licencia.fecha_hasta}" style="margin:0; width:125px; font-size:12px;">
+                    <button class="accion-btn btn-save" style="min-width:70px; height:30px;" onclick="guardarLicencia('${p.id}')">OK</button>
+                </div>
+            </td>
+            <td>
+                <div class="acciones-container">
+                    <button id="btn_edit_${p.id}" class="accion-btn btn-edit-action" onclick="habilitarEdicionProf('${p.id}')">Editar</button>
+                    <button id="btn_save_${p.id}" class="accion-btn btn-save" style="display:none;" onclick="guardarEdicionProf('${p.id}')">Guardar</button>
+                    <button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')">Borrar</button>
+                </div>
+            </td>
+        </tr>`;
     });
     html += `</table></div>`;
     document.getElementById("main-content").innerHTML = html;
@@ -297,10 +296,24 @@ function estaEnLicencia(idProfesional, ausencias) {
     return false;
 }
 
+// NUEVA FUNCIÓN PARA FILTRADO DE MENÚS
+function filtrarMenu(input, menuId) {
+    const term = input.value.toLowerCase();
+    const items = document.querySelectorAll(`#menu_${menuId} .menu-list-items > li`);
+    items.forEach(li => {
+        // No ocultamos la opción "- Libre -"
+        if (li.textContent === "- Libre -") return;
+        
+        const texto = li.textContent.toLowerCase();
+        li.style.display = texto.includes(term) ? "flex" : "none";
+    });
+}
+
 function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
     if(consultorios.length === 0) {
         document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>No hay consultorios</h2></div>`; return;
     }
+    
     let horarios = [];
     for (let h = 8; h <= 19; h++) {
         horarios.push(`${String(h).padStart(2, "0")}:00`);
@@ -315,10 +328,11 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
     html += "</tr>";
 
     horarios.forEach(h => {
-        let h_str = h.replace(':', '_'); 
+        let h_str = h.replace(':', '_');
         html += `<tr><td><strong>${h}</strong></td>`;
         consultorios.forEach(c => {
             let slot = agenda.find(a => a.horario == h && a.consultorio_id == c.id);
+            
             if (modo === "editar") {
                 let selectedText = "- Libre -";
                 if (slot && slot.profesional_id) {
@@ -329,21 +343,38 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
                         else selectedText = slot.especialidad ? `${p.nombre} - ${slot.especialidad}` : p.nombre;
                     }
                 }
-                let menuHtml = `<ul class="custom-dropdown-menu" id="menu_${c.id}_${h_str}" style="display:none;">`;
-                menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', null, null)">- Libre -</li>`;
+
+                // ESTRUCTURA CON BUSCADOR INTEGRADO
+                let menuHtml = `
+                    <div class="custom-dropdown-menu" id="menu_${c.id}_${h_str}">
+                        <div class="menu-search-container">
+                            <input type="text" class="menu-search-input" placeholder="🔍 Buscar..." 
+                                   onkeyup="filtrarMenu(this, '${c.id}_${h_str}')" 
+                                   onclick="event.stopPropagation()">
+                        </div>
+                        <ul class="menu-list-items">
+                            <li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', null, null)">- Libre -</li>`;
+                
                 listaProfesionalesGlobal.forEach(p => {
                     let lic = estaEnLicencia(p.id, ausencias);
                     let isLic = lic && lic.activa;
                     let label = isLic ? `${p.nombre} (LIC)` : p.nombre;
+                    
                     if (p.especialidades && !isLic) {
                         let esps = p.especialidades.split(',').map(e => e.trim()).filter(e=>e);
                         if (esps.length > 0) {
-                            menuHtml += `<li class="has-submenu">${label} <span>▶</span><ul class="custom-submenu">${esps.map(e => `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', '${e}')">${e}</li>`).join('')}</ul></li>`;
-                        } else { menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', null)">${label}</li>`; }
-                    } else { menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', null)">${label}</li>`; }
+                            menuHtml += `<li class="has-submenu">${label} <span> ▶ </span><ul class="custom-submenu">${esps.map(e => `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', '${e}')">${e}</li>`).join('')}</ul></li>`;
+                        } else { 
+                            menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', null)">${label}</li>`; 
+                        }
+                    } else { 
+                        menuHtml += `<li onclick="seleccionarOpcionTurno('${c.id}', '${h_str}', '${p.id}', null)">${label}</li>`; 
+                    }
                 });
-                menuHtml += `</ul>`;
+                
+                menuHtml += `</ul></div>`;
                 html += `<td style="vertical-align: top;"><div class="custom-select-container"><div class="custom-select-box" onclick="toggleCustomMenu('${c.id}_${h_str}', event)">${selectedText}</div>${menuHtml}</div></td>`;
+                
             } else {
                 if (slot && slot.profesional_id) {
                     let p = listaProfesionalesGlobal.find(x => x.id == slot.profesional_id);
@@ -367,16 +398,37 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
 
 function toggleCustomMenu(idStr, event) {
     event.stopPropagation();
-    document.querySelectorAll('.custom-dropdown-menu').forEach(m => { if (m.id !== `menu_${idStr}`) m.style.display = 'none'; });
+    document.querySelectorAll('.custom-dropdown-menu').forEach(m => { 
+        if (m.id !== `menu_${idStr}`) m.style.display = 'none'; 
+    });
     const menu = document.getElementById(`menu_${idStr}`);
-    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    const isHidden = menu.style.display === 'none' || menu.style.display === '';
+    menu.style.display = isHidden ? 'block' : 'none';
+    
+    // Al abrir, limpiar el buscador y enfocarlo
+    if (isHidden) {
+        const input = menu.querySelector('.menu-search-input');
+        input.value = '';
+        filtrarMenu(input, idStr); // Resetear visibilidad
+        setTimeout(() => input.focus(), 50);
+    }
 }
 
 async function seleccionarOpcionTurno(c_id, h_str, profId, especialidad) {
     document.getElementById(`menu_${c_id}_${h_str}`).style.display = 'none';
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
-    await fetch("/agenda", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ consultorio_id: c_id, profesional_id: profId || null, especialidad: especialidad || null, horario: h_str.replace('_', ':'), dia_semana: dia, sector }) });
+    await fetch("/agenda", { 
+        method: "POST", headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ 
+            consultorio_id: c_id, 
+            profesional_id: profId || null, 
+            especialidad: especialidad || null, 
+            horario: h_str.replace('_', ':'), 
+            dia_semana: dia, 
+            sector 
+        }) 
+    });
     verAgenda();
 }
 
@@ -389,6 +441,16 @@ async function drop(ev, consultorio, horario) {
     if (!id) return;
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
-    await fetch("/agenda", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ consultorio_id: consultorio, profesional_id: id, especialidad: esp || null, horario: horario, dia_semana: dia, sector }) });
+    await fetch("/agenda", { 
+        method: "POST", headers: { "Content-Type": "application/json" }, 
+        body: JSON.stringify({ 
+            consultorio_id: consultorio, 
+            profesional_id: id, 
+            especialidad: esp || null, 
+            horario: horario, 
+            dia_semana: dia, 
+            sector 
+        }) 
+    });
     verAgenda();
 }
