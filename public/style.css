@@ -51,7 +51,7 @@ td { padding: 8px; border-bottom: 1px solid var(--border); font-size: 13px; posi
 }
 
 .custom-dropdown-menu {
-    position: absolute; top: 100%; left: 0; width: 480px;
+    position: absolute; top: 100%; left: 0; width: 280px;
     background: #fff; border: 1px solid var(--border); border-radius: 8px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 99999; display: none;
 }
