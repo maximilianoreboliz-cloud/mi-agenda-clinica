@@ -4,7 +4,6 @@ let datosUsuario = null;
 let listaProfesionalesGlobal = [];
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Cerrar menús al hacer clic fuera
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.custom-select-container')) {
             document.querySelectorAll('.custom-dropdown-menu').forEach(m => m.style.display = 'none');
@@ -12,30 +11,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-/* --- AUTENTICACIÓN --- */
-function toggleModoFormulario() {
-    esRegistro = !esRegistro;
-    document.getElementById("form-title").innerText = esRegistro ? "Crear Cuenta" : "Ingreso al Sistema";
-    document.getElementById("btn-submit").innerText = esRegistro ? "Solicitar Cuenta" : "Ingresar";
-    document.getElementById("toggle-text").innerHTML = esRegistro 
-        ? '¿Ya tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Ingresar</a>' 
-        : '¿No tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Solicitar acceso</a>';
-}
-
 async function procesarFormulario() {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
-    if (!email || !password) return alert("Completa todos los campos.");
-    
+    if (!email || !password) return alert("Faltan datos");
     const endpoint = esRegistro ? "/registro" : "/login";
     try {
-        const res = await fetch(endpoint, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password })
-        });
+        const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
         const data = await res.json();
         if (res.ok) {
-            if (esRegistro) alert("Solicitud enviada.");
+            if (esRegistro) alert("Solicitud enviada");
             else {
                 datosUsuario = data.usuario;
                 document.getElementById("login-container").style.display = "none";
@@ -45,88 +30,42 @@ async function procesarFormulario() {
                 cargarSectores();
             }
         } else alert(data.error);
-    } catch (err) { alert("Error de conexión."); }
+    } catch(e) { alert("Error de servidor"); }
 }
-
-function cerrarSesion() { location.reload(); }
 
 async function cargarSectores() {
     const res = await fetch("/sectores");
     const sectores = await res.json();
-    const select = document.getElementById("sector");
-    select.innerHTML = sectores.map(s => `<option value="${s.nombre}">${s.nombre}</option>`).join('');
+    document.getElementById("sector").innerHTML = sectores.map(s => `<option value="${s.nombre}">${s.nombre}</option>`).join('');
 }
 
-/* --- PROFESIONALES --- */
-async function pantallaProfesionales() {
-    document.getElementById("titulo-seccion").innerText = "Gestión de Profesionales";
-    document.getElementById("filtros-container").style.display = "none";
-    const [resP, resA] = await Promise.all([fetch("/profesionales"), fetch("/ausencias")]);
-    const profesionales = await resP.json();
-    const ausencias = await resA.json();
-    
-    let html = `<div class="card-table"><table><tr><th>Color</th><th>Nombre y Especialidades</th><th>Licencia</th><th>Acciones</th></tr>`;
-    profesionales.forEach(p => {
-        let aus = ausencias.find(a => a.profesional_id === p.id) || { fecha_desde: '', fecha_hasta: '' };
-        html += `<tr>
-            <td><input type="color" class="color-picker" value="${p.color || '#e2e8f0'}" onchange="cambiarColor('${p.id}', this.value)"></td>
-            <td><strong>${p.nombre}</strong><br><small>${p.especialidades || 'Sin especialidades'}</small></td>
-            <td><input type="date" id="d_${p.id}" value="${aus.fecha_desde}"> a <input type="date" id="h_${p.id}" value="${aus.fecha_hasta}"> <button onclick="guardarLicencia('${p.id}')">OK</button></td>
-            <td><button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')">Borrar</button></td>
-        </tr>`;
-    });
-    html += `</table></div>`;
-    document.getElementById("main-content").innerHTML = html;
-}
-
-async function cambiarColor(id, color) {
-    await fetch(`/profesional/${id}/color`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ color }) });
-}
-
-async function guardarLicencia(id) {
-    const desde = document.getElementById("d_"+id).value;
-    const hasta = document.getElementById("h_"+id).value;
-    await fetch("/licencia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profesional_id: id, desde, hasta }) });
-    alert("Licencia actualizada");
-}
-
-async function eliminarProfesional(id) {
-    if(confirm("¿Borrar?")) {
-        await fetch(`/profesional/${id}`, { method: "DELETE" });
-        pantallaProfesionales();
-    }
-}
-
-/* --- AGENDA Y BUSCADOR --- */
+/* --- AGENDA --- */
 function pantallaVerAgenda() { modo = "ver"; prepararAgenda(); }
 function pantallaModificarAgenda() { modo = "editar"; prepararAgenda(); }
 
 function prepararAgenda() {
     document.getElementById("titulo-seccion").innerText = modo === "ver" ? "Visor de Agenda" : "Edición de Agenda";
     document.getElementById("filtros-container").style.display = "block";
-    document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>Seleccione filtros para cargar</h2></div>`;
+    document.getElementById("main-content").innerHTML = `<div style="padding:40px; text-align:center; color:#94a3b8;">Seleccione filtros para cargar la grilla</div>`;
 }
 
 async function ejecutarBusqueda() {
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
-    const [resC, resA, resP, resAus] = await Promise.all([
+    const [resC, resA, resP] = await Promise.all([
         fetch(`/consultorios?sector=${sector}`),
         fetch(`/agenda?dia=${dia}&sector=${sector}`),
-        fetch("/profesionales"),
-        fetch("/ausencias")
+        fetch("/profesionales")
     ]);
     listaProfesionalesGlobal = await resP.json();
-    dibujarAgenda(await resC.json(), await resA.json(), await resAus.json(), dia, sector);
+    dibujarAgenda(await resC.json(), await resA.json(), dia, sector);
 }
 
 function filtrarMenu(input, menuId) {
     const term = input.value.toLowerCase();
     const items = document.querySelectorAll(`#menu_${menuId} .menu-list-items > li`);
     items.forEach(li => {
-        const nombreProf = li.childNodes[0].textContent.toLowerCase();
-        if (nombreProf.includes("- libre -")) return;
-        li.style.display = nombreProf.includes(term) ? "flex" : "none";
+        li.style.display = li.innerText.toLowerCase().includes(term) ? "block" : "none";
     });
 }
 
@@ -136,7 +75,6 @@ function toggleCustomMenu(idStr, event) {
     const menu = document.getElementById(`menu_${idStr}`);
     const isVisible = menu.style.display === 'block';
     menu.style.display = isVisible ? 'none' : 'block';
-    
     if (!isVisible) {
         const inp = menu.querySelector('.menu-search-input');
         inp.value = '';
@@ -145,53 +83,51 @@ function toggleCustomMenu(idStr, event) {
     }
 }
 
-function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
+function dibujarAgenda(consultorios, agenda, dia, sector) {
     let horarios = [];
     for (let h = 8; h <= 19; h++) {
         horarios.push(`${String(h).padStart(2, "0")}:00`);
         if(h !== 19) horarios.push(`${String(h).padStart(2, "0")}:30`);
     }
 
-    let html = `<h3 style="margin-bottom:15px;">Día: ${dia} - Sector: ${sector}</h3>
-                <div class="card-table"><table class="tabla-agenda"><tr><th style="width:80px">Hora</th>`;
+    let html = `<div class="card-table"><table class="tabla-agenda"><tr><th style="width:70px">Hora</th>`;
     consultorios.forEach(c => html += `<th>Cons. ${c.numero}</th>`);
     html += "</tr>";
 
     horarios.forEach(h => {
         let h_id = h.replace(':','_');
-        html += `<tr><td><strong>${h}</strong></td>`;
+        html += `<tr><td style="text-align:center"><strong>${h}</strong></td>`;
         consultorios.forEach(c => {
             let slot = agenda.find(a => a.horario == h && a.consultorio_id == c.id);
             if (modo === "editar") {
-                let txt = "- Libre -";
+                let displayTxt = "- Libre -";
                 if(slot) {
                     let p = listaProfesionalesGlobal.find(x => x.id == slot.profesional_id);
-                    if(p) txt = slot.especialidad ? `${p.nombre} (${slot.especialidad})` : p.nombre;
+                    displayTxt = p ? (slot.especialidad ? `${p.nombre} (${slot.especialidad})` : p.nombre) : "- Libre -";
                 }
 
-                let menuItemsHtml = `<li onclick="seleccionarOpcion('${c.id}','${h}',null,null)">- Libre -</li>`;
+                // GENERACIÓN DE LISTA PLANA (Sin submenús)
+                let menuItemsHtml = `<li onclick="seleccionarOpcion('${c.id}','${h}',null,null)"><b>- Marcar como Libre -</b></li>`;
                 listaProfesionalesGlobal.forEach(p => {
                     let esps = p.especialidades ? p.especialidades.split(',').map(e => e.trim()).filter(e => e) : [];
-                    
                     if (esps.length > 0) {
-                        menuItemsHtml += `
-                        <li class="has-submenu">
-                            ${p.nombre} <span class="arrow">▶</span>
-                            <ul class="custom-submenu">
-                                ${esps.map(e => `<li onclick="seleccionarOpcion('${c.id}','${h}','${p.id}','${e}')">${e}</li>`).join('')}
-                            </ul>
-                        </li>`;
+                        esps.forEach(e => {
+                            menuItemsHtml += `<li onclick="seleccionarOpcion('${c.id}','${h}','${p.id}','${e}')">
+                                <b>${p.nombre}</b>
+                                <span>${e}</span>
+                            </li>`;
+                        });
                     } else {
-                        menuItemsHtml += `<li onclick="seleccionarOpcion('${c.id}','${h}','${p.id}',null)">${p.nombre}</li>`;
+                        menuItemsHtml += `<li onclick="seleccionarOpcion('${c.id}','${h}','${p.id}',null)"><b>${p.nombre}</b></li>`;
                     }
                 });
 
                 html += `<td>
                     <div class="custom-select-container">
-                        <div class="custom-select-box" onclick="toggleCustomMenu('${c.id}_${h_id}', event)">${txt}</div>
+                        <div class="custom-select-box" onclick="toggleCustomMenu('${c.id}_${h_id}', event)">${displayTxt}</div>
                         <div class="custom-dropdown-menu" id="menu_${c.id}_${h_id}">
                             <div class="menu-search-container">
-                                <input type="text" class="menu-search-input" placeholder="Buscar profesional..." onkeyup="filtrarMenu(this, '${c.id}_${h_id}')" onclick="event.stopPropagation()">
+                                <input type="text" class="menu-search-input" placeholder="Buscar..." onkeyup="filtrarMenu(this, '${c.id}_${h_id}')" onclick="event.stopPropagation()">
                             </div>
                             <ul class="menu-list-items">${menuItemsHtml}</ul>
                         </div>
@@ -220,3 +156,24 @@ async function seleccionarOpcion(c_id, hora, prof_id, esp) {
     });
     ejecutarBusqueda();
 }
+
+/* --- PANEL ADMIN --- */
+async function pantallaProfesionales() {
+    document.getElementById("titulo-seccion").innerText = "Gestión de Profesionales";
+    document.getElementById("filtros-container").style.display = "none";
+    const res = await fetch("/profesionales");
+    const profesionales = await res.json();
+    let html = `<div class="card-table"><table><tr><th>Color</th><th>Nombre</th><th>Acciones</th></tr>`;
+    profesionales.forEach(p => {
+        html += `<tr>
+            <td><input type="color" class="color-picker" value="${p.color || '#e2e8f0'}" onchange="cambiarColor('${p.id}', this.value)"></td>
+            <td><strong>${p.nombre}</strong><br><small>${p.especialidades || ''}</small></td>
+            <td><button class="btn-delete" onclick="eliminarProf('${p.id}')">Eliminar</button></td>
+        </tr>`;
+    });
+    html += `</table></div>`;
+    document.getElementById("main-content").innerHTML = html;
+}
+
+async function cambiarColor(id, color) { await fetch(`/profesional/${id}/color`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ color }) }); }
+async function eliminarProf(id) { if(confirm("¿Eliminar profesional?")) { await fetch(`/profesional/${id}`, { method: "DELETE" }); pantallaProfesionales(); } }
