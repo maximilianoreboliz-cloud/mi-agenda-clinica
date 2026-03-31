@@ -36,18 +36,16 @@ async function procesarFormulario() {
         const data = await res.json();
         if (res.ok) {
             if (esRegistro) alert("Solicitud enviada.");
-            else iniciarSesion(data.usuario);
+            else {
+                datosUsuario = data.usuario;
+                document.getElementById("login-container").style.display = "none";
+                document.getElementById("app").style.display = "flex";
+                document.getElementById("user-email-display").innerText = data.usuario.email;
+                document.getElementById("btn-panel").style.display = data.usuario.es_admin ? "block" : "none";
+                cargarSectores();
+            }
         } else alert(data.error);
     } catch (err) { alert("Error de conexión."); }
-}
-
-async function iniciarSesion(usuario) {
-    datosUsuario = usuario;
-    document.getElementById("login-container").style.display = "none";
-    document.getElementById("app").style.display = "flex";
-    document.getElementById("user-email-display").innerText = usuario.email;
-    document.getElementById("btn-panel").style.display = usuario.es_admin ? "block" : "none";
-    await cargarSectores();
 }
 
 function cerrarSesion() { location.reload(); }
@@ -67,12 +65,12 @@ async function pantallaProfesionales() {
     const profesionales = await resP.json();
     const ausencias = await resA.json();
     
-    let html = `<div class="card-table"><table><tr><th>Color</th><th>Nombre</th><th>Licencia</th><th>Acciones</th></tr>`;
+    let html = `<div class="card-table"><table><tr><th>Color</th><th>Nombre y Especialidades</th><th>Licencia</th><th>Acciones</th></tr>`;
     profesionales.forEach(p => {
         let aus = ausencias.find(a => a.profesional_id === p.id) || { fecha_desde: '', fecha_hasta: '' };
         html += `<tr>
-            <td><input type="color" value="${p.color || '#e2e8f0'}" onchange="cambiarColor('${p.id}', this.value)"></td>
-            <td><strong>${p.nombre}</strong></td>
+            <td><input type="color" class="color-picker" value="${p.color || '#e2e8f0'}" onchange="cambiarColor('${p.id}', this.value)"></td>
+            <td><strong>${p.nombre}</strong><br><small>${p.especialidades || 'Sin especialidades'}</small></td>
             <td><input type="date" id="d_${p.id}" value="${aus.fecha_desde}"> a <input type="date" id="h_${p.id}" value="${aus.fecha_hasta}"> <button onclick="guardarLicencia('${p.id}')">OK</button></td>
             <td><button class="accion-btn btn-delete" onclick="eliminarProfesional('${p.id}')">Borrar</button></td>
         </tr>`;
@@ -89,7 +87,14 @@ async function guardarLicencia(id) {
     const desde = document.getElementById("d_"+id).value;
     const hasta = document.getElementById("h_"+id).value;
     await fetch("/licencia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profesional_id: id, desde, hasta }) });
-    alert("Licencia guardada");
+    alert("Licencia actualizada");
+}
+
+async function eliminarProfesional(id) {
+    if(confirm("¿Borrar?")) {
+        await fetch(`/profesional/${id}`, { method: "DELETE" });
+        pantallaProfesionales();
+    }
 }
 
 /* --- AGENDA Y BUSCADOR --- */
@@ -97,9 +102,9 @@ function pantallaVerAgenda() { modo = "ver"; prepararAgenda(); }
 function pantallaModificarAgenda() { modo = "editar"; prepararAgenda(); }
 
 function prepararAgenda() {
-    document.getElementById("titulo-seccion").innerText = modo === "ver" ? "Visor" : "Edición";
+    document.getElementById("titulo-seccion").innerText = modo === "ver" ? "Visor de Agenda" : "Edición de Agenda";
     document.getElementById("filtros-container").style.display = "block";
-    document.getElementById("main-content").innerHTML = "Seleccione filtros.";
+    document.getElementById("main-content").innerHTML = `<div class="empty-state"><h2>Seleccione filtros para cargar</h2></div>`;
 }
 
 async function ejecutarBusqueda() {
@@ -115,13 +120,13 @@ async function ejecutarBusqueda() {
     dibujarAgenda(await resC.json(), await resA.json(), await resAus.json(), dia, sector);
 }
 
-// Lógica de filtrado en tiempo real
 function filtrarMenu(input, menuId) {
     const term = input.value.toLowerCase();
     const items = document.querySelectorAll(`#menu_${menuId} .menu-list-items > li`);
     items.forEach(li => {
-        if (li.textContent.includes("- Libre -")) return;
-        li.style.display = li.textContent.toLowerCase().includes(term) ? "flex" : "none";
+        const nombreProf = li.childNodes[0].textContent.toLowerCase();
+        if (nombreProf.includes("- libre -")) return;
+        li.style.display = nombreProf.includes(term) ? "flex" : "none";
     });
 }
 
@@ -129,7 +134,6 @@ function toggleCustomMenu(idStr, event) {
     event.stopPropagation();
     document.querySelectorAll('.custom-dropdown-menu').forEach(m => { if(m.id !== `menu_${idStr}`) m.style.display='none'; });
     const menu = document.getElementById(`menu_${idStr}`);
-    if (!menu) return;
     const isVisible = menu.style.display === 'block';
     menu.style.display = isVisible ? 'none' : 'block';
     
@@ -148,7 +152,8 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
         if(h !== 19) horarios.push(`${String(h).padStart(2, "0")}:30`);
     }
 
-    let html = `<div class="card-table"><table class="tabla-agenda"><tr><th>Hora</th>`;
+    let html = `<h3 style="margin-bottom:15px;">Día: ${dia} - Sector: ${sector}</h3>
+                <div class="card-table"><table class="tabla-agenda"><tr><th style="width:80px">Hora</th>`;
     consultorios.forEach(c => html += `<th>Cons. ${c.numero}</th>`);
     html += "</tr>";
 
@@ -161,18 +166,21 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
                 let txt = "- Libre -";
                 if(slot) {
                     let p = listaProfesionalesGlobal.find(x => x.id == slot.profesional_id);
-                    if(p) txt = slot.especialidad ? `${p.nombre} - ${slot.especialidad}` : p.nombre;
+                    if(p) txt = slot.especialidad ? `${p.nombre} (${slot.especialidad})` : p.nombre;
                 }
 
                 let menuItemsHtml = `<li onclick="seleccionarOpcion('${c.id}','${h}',null,null)">- Libre -</li>`;
                 listaProfesionalesGlobal.forEach(p => {
-                    if (p.especialidades) {
-                        let esps = p.especialidades.split(',').map(e => e.trim());
-                        menuItemsHtml += `<li class="has-submenu">${p.nombre} <span>▶</span><ul class="custom-submenu">`;
-                        esps.forEach(e => {
-                            menuItemsHtml += `<li onclick="seleccionarOpcion('${c.id}','${h}','${p.id}','${e}')">${e}</li>`;
-                        });
-                        menuItemsHtml += `</ul></li>`;
+                    let esps = p.especialidades ? p.especialidades.split(',').map(e => e.trim()).filter(e => e) : [];
+                    
+                    if (esps.length > 0) {
+                        menuItemsHtml += `
+                        <li class="has-submenu">
+                            ${p.nombre} <span class="arrow">▶</span>
+                            <ul class="custom-submenu">
+                                ${esps.map(e => `<li onclick="seleccionarOpcion('${c.id}','${h}','${p.id}','${e}')">${e}</li>`).join('')}
+                            </ul>
+                        </li>`;
                     } else {
                         menuItemsHtml += `<li onclick="seleccionarOpcion('${c.id}','${h}','${p.id}',null)">${p.nombre}</li>`;
                     }
@@ -183,7 +191,7 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
                         <div class="custom-select-box" onclick="toggleCustomMenu('${c.id}_${h_id}', event)">${txt}</div>
                         <div class="custom-dropdown-menu" id="menu_${c.id}_${h_id}">
                             <div class="menu-search-container">
-                                <input type="text" class="menu-search-input" placeholder="🔍 Buscar..." onkeyup="filtrarMenu(this, '${c.id}_${h_id}')" onclick="event.stopPropagation()">
+                                <input type="text" class="menu-search-input" placeholder="Buscar profesional..." onkeyup="filtrarMenu(this, '${c.id}_${h_id}')" onclick="event.stopPropagation()">
                             </div>
                             <ul class="menu-list-items">${menuItemsHtml}</ul>
                         </div>
@@ -192,7 +200,8 @@ function dibujarAgenda(consultorios, agenda, ausencias, dia, sector) {
             } else {
                 if(slot) {
                     let p = listaProfesionalesGlobal.find(x => x.id == slot.profesional_id);
-                    html += `<td style="background:${p?.color || '#eee'}">${p?.nombre || 'Error'}</td>`;
+                    let sub = slot.especialidad ? `<br><small style="font-size:10px">${slot.especialidad}</small>` : '';
+                    html += `<td class="slot-ocupado" style="background:${p?.color || '#eee'}">${p?.nombre || '?'}${sub}</td>`;
                 } else html += `<td class="slot-vacio">Libre</td>`;
             }
         });
