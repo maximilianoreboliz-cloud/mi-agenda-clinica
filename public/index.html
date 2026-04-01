@@ -3,64 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agenda Hospitalaria</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Sistema de Gestión Médica</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="login-container">
         <div class="login-card">
             <h2 id="form-title">Ingreso al Sistema</h2>
-            <p class="subtitle">Gestión de Agenda Clínica</p>
-            <input id="email" type="email" placeholder="Correo electrónico" required>
-            <input id="password" type="password" placeholder="Contraseña" required>
-            <button id="btn-submit" class="btn-primary" onclick="procesarFormulario()">Ingresar</button>
-            <div class="toggle-form">
-                <span id="toggle-text">¿No tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Solicitar acceso</a></span>
+            <p class="subtitle">Gestión de Agendas Médicas</p>
+            <input type="email" id="email" placeholder="Correo electrónico">
+            <input type="password" id="password" placeholder="Contraseña">
+            <button class="btn-primary" id="btn-submit" onclick="procesarFormulario()">Ingresar</button>
+            <div id="error-msg"></div>
+            <div class="toggle-form" id="toggle-text">
+                ¿No tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Solicitar acceso</a>
             </div>
         </div>
     </div>
 
-    <div id="app" style="display:none">
+    <div id="app" style="display: none;">
         <aside class="sidebar">
-            <div class="sidebar-header"><h2> ⚕️ Agenda C.P.P.R</h2></div>
+            <div class="sidebar-header">
+                <h2>MediPlan 2.0</h2>
+                <small id="user-email-display"></small>
+            </div>
             <nav class="sidebar-nav">
-                <button onclick="pantallaVerAgenda()" id="btn-ver"> 👁️ Ver Agenda</button>
-                <button onclick="pantallaModificarAgenda()" id="btn-editar"> ✏️ Modificar Agenda</button>
-                <button onclick="pantallaProfesionales()"> 🩺 Profesionales</button>
-                <button onclick="cargarPanelControl()" id="btn-panel" style="display:none"> ⚙️ Panel de Control</button>
+                <button onclick="pantallaVerAgenda()" class="active">📅 Visor de Agenda</button>
+                <button onclick="pantallaModificarAgenda()">⚙️ Configurar Agenda</button>
+                <button onclick="pantallaProfesionales()">👨‍⚕️ Profesionales</button>
+                <button id="btn-panel" style="display:none;" onclick="cargarPanelControl()">🛡️ Panel Admin</button>
             </nav>
-            <div class="filtros-agenda" id="filtros-container">
+
+            <div id="filtros-container" class="filtros-agenda">
                 <h3>Filtros de Búsqueda</h3>
-                <label for="dia">Día de la semana</label>
-                <select id="dia">
+                
+                <label>Fecha Específica</label>
+                <input type="date" id="fecha-busqueda" onchange="actualizarDiaSemana()">
+
+                <label>Día de la Semana</label>
+                <select id="dia" disabled>
                     <option value="Lunes">Lunes</option>
                     <option value="Martes">Martes</option>
-                    <option value="Miércoles">Miércoles</option>
+                    <option value="Miercoles">Miércoles</option>
                     <option value="Jueves">Jueves</option>
                     <option value="Viernes">Viernes</option>
+                    <option value="Sabado">Sábado</option>
+                    <option value="Domingo">Domingo</option>
                 </select>
-                <label for="sector">Sector Médico</label>
+
+                <label>Sector</label>
                 <select id="sector"></select>
-                <button class="btn-primary" onclick="ejecutarBusqueda()"> 🔍 Buscar</button>
+
+                <button class="btn-primary" onclick="ejecutarBusqueda()">Buscar</button>
             </div>
+
             <div class="sidebar-footer">
                 <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión</button>
             </div>
         </aside>
+
         <main class="content">
             <header class="topbar">
-                <h1 id="titulo-seccion">Bienvenido</h1>
-                <div class="user-info"><span id="user-email-display">usuario@clinica.com</span></div>
+                <h1 id="titulo-seccion">Visor de Agenda</h1>
             </header>
-            <div id="main-content" class="main-body">
-                <div class="empty-state">
-                    <h2>Selecciona una opción del menú</h2>
-                    <p>Utiliza los filtros de la izquierda para buscar la agenda.</p>
-                </div>
-            </div>
+            <section class="main-body" id="main-content">
+                </section>
         </main>
     </div>
+
     <script src="app.js"></script>
 </body>
 </html>
