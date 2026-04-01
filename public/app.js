@@ -4,14 +4,14 @@ let datosUsuario = null;
 let listaProfesionalesGlobal = [];
 
 // Cerrar menús al hacer clic afuera
+document.addEventListener('click', (e) => {
+    if (!e.target.closest('.custom-select-container')) {
+        document.querySelectorAll('.custom-dropdown-menu').forEach(m => m.style.display = 'none');
+    }
+});
+
+// Sincronizar fecha inicial al cargar la página
 document.addEventListener('DOMContentLoaded', () => {
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.custom-select-container')) {
-            document.querySelectorAll('.custom-dropdown-menu').forEach(m => m.style.display = 'none');
-        }
-    });
-    
-    // Sincronizar fecha inicial
     const hoy = new Date().toISOString().split('T')[0];
     const inpFecha = document.getElementById("fecha-busqueda");
     if(inpFecha) {
@@ -33,24 +33,38 @@ async function procesarFormulario() {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
     const errorMsg = document.getElementById("error-msg");
-    errorMsg.innerText = "";
+    
+    if (errorMsg) errorMsg.innerText = "";
 
-    if (!email || !password) return errorMsg.innerText = "Completa todos los campos.";
+    if (!email || !password) {
+        if (errorMsg) errorMsg.innerText = "Completa todos los campos.";
+        return;
+    }
     
     const endpoint = esRegistro ? "/registro" : "/login";
     try {
         const res = await fetch(endpoint, {
-            method: "POST", headers: { "Content-Type": "application/json" },
+            method: "POST", 
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password })
         });
         const data = await res.json();
+        
         if (res.ok) {
             if (esRegistro) {
                 alert("Solicitud enviada. Espera la aprobación del administrador.");
                 toggleModoFormulario();
-            } else {Iniciar Sesión(data.usuario);}
-        } else {errorMsg.innerText = data.error;}
-    } catch (e) {errorMsg.innerText = "Error de conexión.";}
+            } else {
+                iniciarSesion(data.usuario); // Corregido: sin espacio y minúscula
+            }
+        } else {
+            if (errorMsg) errorMsg.innerText = data.error;
+            else alert(data.error);
+        }
+    } catch (e) {
+        console.error(e);
+        if (errorMsg) errorMsg.innerText = "Error de conexión con el servidor.";
+    }
 }
 
 function iniciarSesion(usuario) {
@@ -60,6 +74,7 @@ function iniciarSesion(usuario) {
     document.getElementById("user-email-display").innerText = usuario.email;
     document.getElementById("btn-panel").style.display = usuario.es_admin ? "block" : "none";
     cargarSectores();
+    pantallaVerAgenda(); // Carga la vista inicial por defecto
 }
 
 function cerrarSesion() { location.reload(); }
@@ -67,7 +82,10 @@ function cerrarSesion() { location.reload(); }
 async function cargarSectores() {
     const res = await fetch("/sectores");
     const sectores = await res.json();
-    document.getElementById("sector").innerHTML = sectores.map(s => `<option value="${s.nombre}">${s.nombre}</option>`).join('');
+    const selectSector = document.getElementById("sector");
+    if (selectSector) {
+        selectSector.innerHTML = sectores.map(s => `<option value="${s.nombre}">${s.nombre}</option>`).join('');
+    }
 }
 
 function actualizarDiaSemana() {
@@ -78,19 +96,25 @@ function actualizarDiaSemana() {
     document.getElementById("dia").value = dias[fecha.getDay()];
 }
 
-/* --- AGENDA UI REDISEÑADA --- */
-function pantallaVerAgenda() { modo = "ver"; prepararInterfaz("Visor de Agenda", "nav-ver"); }
-function pantallaModificarAgenda() { modo = "editar"; prepararInterfaz("Configurar Turnos", "nav-modificar"); }
+/* --- AGENDA --- */
+function pantallaVerAgenda() { 
+    modo = "ver"; 
+    prepararInterfaz("Visor de Agenda", "nav-ver"); 
+}
+
+function pantallaModificarAgenda() { 
+    modo = "editar"; 
+    prepararInterfaz("Configurar Turnos", "nav-modificar"); 
+}
 
 function prepararInterfaz(titulo, navId) {
-    // Actualizar nav activa
     document.querySelectorAll('.sidebar-nav button').forEach(b => b.classList.remove('active'));
-    document.getElementById(navId).classList.add('active');
+    const btnNav = document.getElementById(navId);
+    if (btnNav) btnNav.classList.add('active');
     
     document.getElementById("titulo-seccion").innerText = titulo;
     document.getElementById("filtros-container").style.display = "block";
     
-    // Estado vacío inicial estético
     document.getElementById("main-content").innerHTML = `
         <div class="empty-state">
             <div class="empty-icon">🔍</div>
@@ -104,14 +128,18 @@ async function ejecutarBusqueda() {
     const sector = document.getElementById("sector").value;
     const fecha = document.getElementById("fecha-busqueda").value;
 
-    const [resC, resA, resP] = await Promise.all([
-        fetch(`/consultorios?sector=${sector}`),
-        fetch(`/agenda?dia=${dia}&sector=${sector}&fechaCompleta=${fecha}`),
-        fetch("/profesionales")
-    ]);
-    
-    listaProfesionalesGlobal = await resP.json();
-    dibujarAgenda(await resC.json(), await resA.json(), fecha, sector, dia);
+    try {
+        const [resC, resA, resP] = await Promise.all([
+            fetch(`/consultorios?sector=${sector}`),
+            fetch(`/agenda?dia=${dia}&sector=${sector}&fechaCompleta=${fecha}`),
+            fetch("/profesionales")
+        ]);
+        
+        listaProfesionalesGlobal = await resP.json();
+        dibujarAgenda(await resC.json(), await resA.json(), fecha, sector, dia);
+    } catch (e) {
+        console.error("Error en búsqueda:", e);
+    }
 }
 
 function dibujarAgenda(consultorios, agenda, fecha, sector, dia) {
@@ -137,7 +165,7 @@ function dibujarAgenda(consultorios, agenda, fecha, sector, dia) {
 
     horarios.forEach(h => {
         let h_id = h.replace(':','_');
-        html += `<tr><tdStrong>${h}</tdStrong>`;
+        html += `<tr><td style="font-weight:700; color:var(--primary); text-align:center;">${h}</td>`;
         consultorios.forEach(c => {
             const slot = agenda.find(a => a.horario == h && a.consultorio_id == c.id);
             if (modo === "editar") {
@@ -178,21 +206,18 @@ function dibujarAgenda(consultorios, agenda, fecha, sector, dia) {
         html += "</tr>";
     });
     
-    // Header con info de la búsqueda
     const headerHtml = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
         <h3 style="font-size:16px; font-weight:600; color:var(--text-main);">${sector} - ${dia} ${fecha.split('-').reverse().join('/')}</h3>
-        <span class="pill" style="background:var(--primary-light); color:var(--primary); padding:5px 12px; border-radius:var(--radius-full); font-size:12px; font-weight:600;">${modo === 'ver' ? 'Modo Lectura' : 'Modo Edición'}</span>
+        <span style="background:var(--primary-light); color:var(--primary); padding:5px 12px; border-radius:99px; font-size:12px; font-weight:600;">${modo === 'ver' ? 'Modo Lectura' : 'Modo Edición'}</span>
     </div>`;
     
     document.getElementById("main-content").innerHTML = headerHtml + html + "</table></div>";
 }
 
-/* --- PROFESIONALES UI REDISEÑADA --- */
+/* --- PROFESIONALES --- */
 async function pantallaProfesionales() {
-    // Actualizar nav activa
     document.querySelectorAll('.sidebar-nav button').forEach(b => b.classList.remove('active'));
     document.getElementById("nav-profesionales").classList.add('active');
-    
     document.getElementById("titulo-seccion").innerText = "Gestión de Profesionales";
     document.getElementById("filtros-container").style.display = "none";
     
@@ -204,42 +229,44 @@ async function pantallaProfesionales() {
     <div class="form-container">
         <h3>➕ Incorporar Nuevo Profesional</h3>
         <div class="grid-form">
-            <div class="input-group-sm" style="margin-bottom:0">
+            <div class="input-group-sm">
                 <label>Nombre Completo</label>
                 <input id="new-name" placeholder="Ej: Dr. Alejandro Pérez">
             </div>
-            <div class="input-group-sm" style="margin-bottom:0">
-                <label>Especialidades (separadas por coma)</label>
-                <input id="new-esp" placeholder="Cardiología, Clínica Médica">
+            <div class="input-group-sm">
+                <label>Especialidades</label>
+                <input id="new-esp" placeholder="Cardiología, Clínica">
             </div>
             <button class="btn-primary btn-md" onclick="crearProf()">Guardar</button>
         </div>
     </div>
     <div class="card-table">
         <table>
-            <tr><th style="width:70px; text-align:center;">Color</th><th>Nombre</th><th>Licencia (Desde - Hasta)</th><th style="text-align:center;">Acciones</th></tr>`;
+            <tr><th style="width:70px; text-align:center;">Color</th><th>Nombre</th><th>Licencia</th><th style="text-align:center;">Acciones</th></tr>`;
     
     profs.forEach(p => {
         const licencia = aus.find(a => a.profesional_id == p.id) || { fecha_desde: '', fecha_hasta: '' };
         html += `<tr>
-            <td style="text-align:center;"><input type="color" class="color-circle-input" value="${p.color || '#e2e8f0'}" onchange="cambiarColor('${p.id}', this.value)" title="Cambiar color de identificación"></td>
+            <td style="text-align:center;"><input type="color" class="color-circle-input" value="${p.color || '#e2e8f0'}" onchange="cambiarColor('${p.id}', this.value)"></td>
             <td>
-                <div id="v_${p.id}"><strong>${p.nombre}</strong><br><small style="color:var(--text-muted);">${p.especialidades || 'Sin especialidades'}</small></div>
-                <div id="e_${p.id}" style="display:none; flex-direction:column; gap:5px;"><input id="in_${p.id}" value="${p.nombre}" style="padding:5px; margin:0;"><input id="ie_${p.id}" value="${p.especialidades || ''}" style="padding:5px; margin:0; font-size:12px;"></div>
+                <div id="v_${p.id}"><strong>${p.nombre}</strong><br><small style="color:var(--text-muted);">${p.especialidades || ''}</small></div>
+                <div id="e_${p.id}" style="display:none; flex-direction:column; gap:5px;">
+                    <input id="in_${p.id}" value="${p.nombre}">
+                    <input id="ie_${p.id}" value="${p.especialidades || ''}">
+                </div>
             </td>
             <td>
                 <div style="display:flex; gap:5px; align-items:center;">
-                    <input type="date" id="d_${p.id}" value="${licencia.fecha_desde}" style="width:130px; margin:0; padding:6px; font-size:12px;">
-                    <span style="color:var(--text-muted);">a</span>
-                    <input type="date" id="h_${p.id}" value="${licencia.fecha_hasta}" style="width:130px; margin:0; padding:6px; font-size:12px;">
-                    <button class="accion-btn btn-save" style="padding:6px; min-width:35px;" onclick="guardarLicencia('${p.id}')" title="Guardar Licencia">💾</button>
+                    <input type="date" id="d_${p.id}" value="${licencia.fecha_desde}" style="width:130px;">
+                    <input type="date" id="h_${p.id}" value="${licencia.fecha_hasta}" style="width:130px;">
+                    <button class="accion-btn btn-save" style="min-width:40px;" onclick="guardarLicencia('${p.id}')">💾</button>
                 </div>
             </td>
             <td>
                 <div class="acciones-container">
                     <button class="accion-btn btn-edit-action" id="be_${p.id}" onclick="habilitarEdit('${p.id}')">✏️ Editar</button>
-                    <button class="accion-btn btn-save" id="bs_${p.id}" style="display:none;" onclick="saveEdit('${p.id}')">✔️ Guardar</button>
-                    <button class="accion-btn btn-delete" onclick="eliminarProf('${p.id}')">🗑️ Borrar</button>
+                    <button class="accion-btn btn-save" id="bs_${p.id}" style="display:none;" onclick="saveEdit('${p.id}')">✔️ OK</button>
+                    <button class="accion-btn btn-delete" onclick="eliminarProf('${p.id}')">🗑️</button>
                 </div>
             </td>
         </tr>`;
@@ -247,26 +274,19 @@ async function pantallaProfesionales() {
     document.getElementById("main-content").innerHTML = html + "</table></div>";
 }
 
-// Funciones Auxiliares de UI
+// Funciones de apoyo UI
 function toggleM(id, event) {
     event.stopPropagation();
     const menu = document.getElementById(id);
     const visible = menu.style.display === 'block';
     document.querySelectorAll('.custom-dropdown-menu').forEach(m => m.style.display = 'none');
     menu.style.display = visible ? 'none' : 'block';
-    if(!visible) {
-        const inp = menu.querySelector('.menu-search-input');
-        inp.value = '';
-        filterM(inp);
-        setTimeout(() => inp.focus(), 50);
-    }
 }
 
 function filterM(input) {
     const term = input.value.toLowerCase();
     const items = input.nextElementSibling.querySelectorAll('li');
     items.forEach(li => {
-        if(li.innerText.includes("Quitar")) return;
         li.style.display = li.innerText.toLowerCase().includes(term) ? "flex" : "none";
     });
 }
@@ -278,11 +298,9 @@ function habilitarEdit(id) {
     document.getElementById(`bs_${id}`).style.display='inline-flex';
 }
 
-/* --- LOGICA DE NEGOCIO (Sin cambios, solo correcciones de sintaxis) --- */
 async function crearProf() {
     const nombre = document.getElementById("new-name").value;
     const especialidades = document.getElementById("new-esp").value;
-    if(!nombre) return alert("El nombre es obligatorio");
     await fetch("/profesional", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, especialidades }) });
     pantallaProfesionales();
 }
@@ -290,7 +308,6 @@ async function crearProf() {
 async function saveEdit(id) {
     const nombre = document.getElementById(`in_${id}`).value;
     const especialidades = document.getElementById(`ie_${id}`).value;
-    if(!nombre) return alert("El nombre no puede estar vacío");
     await fetch(`/profesional/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, especialidades }) });
     pantallaProfesionales();
 }
@@ -310,7 +327,6 @@ async function guardarLicencia(id) {
     const hasta = document.getElementById(`h_${id}`).value;
     await fetch("/licencia", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profesional_id: id, desde, hasta }) });
     alert("Licencia actualizada");
-    pantallaProfesionales(); // Recargar para mostrar fechas limpias si se borraron
 }
 
 async function cambiarColor(id, color) {
@@ -318,33 +334,25 @@ async function cambiarColor(id, color) {
 }
 
 async function eliminarProf(id) {
-    if(confirm("¿Estás seguro? Se borrará el profesional y toda su agenda asignada.")) {
+    if(confirm("¿Eliminar profesional?")) {
         await fetch(`/profesional/${id}`, { method: "DELETE" });
         pantallaProfesionales();
     }
 }
 
-/* --- PANEL ADMIN UI REDISEÑADA --- */
 async function cargarPanelControl() {
-    document.querySelectorAll('.sidebar-nav button').forEach(b => b.classList.remove('active'));
-    document.getElementById("btn-panel").classList.add('active');
     document.getElementById("filtros-container").style.display = "none";
-    document.getElementById("titulo-seccion").innerText = "Panel de Administración de Usuarios";
-    
+    document.getElementById("titulo-seccion").innerText = "Panel Admin";
     const res = await fetch("/usuarios/admin");
     const usuarios = await res.json();
-    
-    let html = `<div class="card-table"><table><tr><th>Email</th><th>Estado</th><th style="text-align:center;">Acciones</th></tr>`;
+    let html = `<div class="card-table"><table><tr><th>Email</th><th>Estado</th><th>Acciones</th></tr>`;
     usuarios.forEach(u => {
-        const estado = u.activo ? '<span style="color:var(--success); font-weight:600;">🟢 Activo</span>' : '<span style="color:#d97706; font-weight:600;">🟠 Pendiente</span>';
         html += `<tr>
-            <td><strong>${u.email}</strong></td>
-            <td>${estado}</td>
+            <td>${u.email}</td>
+            <td>${u.activo ? 'Activo' : 'Pendiente'}</td>
             <td>
-                <div class="acciones-container">
-                    ${!u.activo ? `<button class="accion-btn btn-save" onclick="aprobarUsuario('${u.id}')">✔️ Aprobar</button>` : ''} 
-                    <button class="accion-btn btn-delete" onclick="borrarUsuario('${u.id}')">🗑️ Borrar</button>
-                </div>
+                ${!u.activo ? `<button onclick="aprobarUsuario('${u.id}')">Aprobar</button>` : ''}
+                <button onclick="borrarUsuario('${u.id}')">Borrar</button>
             </td>
         </tr>`;
     });
@@ -357,8 +365,6 @@ async function aprobarUsuario(id) {
 }
 
 async function borrarUsuario(id) {
-    if(confirm("¿Eliminar este usuario permanentemente?")) {
-        await fetch(`/usuarios/${id}`, { method: "DELETE" });
-        cargarPanelControl();
-    }
+    await fetch(`/usuarios/${id}`, { method: "DELETE" });
+    cargarPanelControl();
 }
