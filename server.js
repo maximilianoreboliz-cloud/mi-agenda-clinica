@@ -9,7 +9,7 @@ app.use(express.static("public"));
 
 const supabase = createClient("https://ywycizbmesdhtfaaxyxt.supabase.co", process.env.SUPABASE_KEY);
 
-// LOGIN Y REGISTRO (Igual que antes)
+// AUTH
 app.post("/login", async (req, res) => {
     const { email, password } = req.body;
     const { data, error } = await supabase.from("usuarios").select("*").eq("email", email).eq("password", password).single();
@@ -20,19 +20,11 @@ app.post("/login", async (req, res) => {
 // PROFESIONALES
 app.get("/profesionales", async (req, res) => {
     const { data } = await supabase.from("profesionales").select("*").order("nombre");
-    res.json(data);
+    res.json(data || []);
 });
 
 app.post("/profesional", async (req, res) => {
-    const { nombre, especialidades } = req.body;
-    await supabase.from("profesionales").insert({ nombre, especialidades, activo: true, color: "#e2e8f0" });
-    res.json({ success: true });
-});
-
-app.patch("/profesional/:id", async (req, res) => {
-    const { id } = req.params;
-    const { nombre, especialidades } = req.body;
-    await supabase.from("profesionales").update({ nombre, especialidades }).eq("id", id);
+    await supabase.from("profesionales").insert({ ...req.body, activo: true, color: "#e2e8f0" });
     res.json({ success: true });
 });
 
@@ -47,37 +39,60 @@ app.delete("/profesional/:id", async (req, res) => {
 });
 
 // LICENCIAS
+app.get("/ausencias", async (req, res) => {
+    const { data } = await supabase.from("ausencias").select("*");
+    res.json(data || []);
+});
+
 app.post("/licencia", async (req, res) => {
     const { profesional_id, desde, hasta } = req.body;
     await supabase.from("ausencias").delete().eq("profesional_id", profesional_id);
-    if(desde && hasta) await supabase.from("ausencias").insert({ profesional_id, fecha_desde: desde, fecha_hasta: hasta });
-    res.json({ success: true });
-});
-
-// SECTORES Y AGENDA (Igual que antes)
-app.get("/sectores", async (req, res) => {
-    const { data } = await supabase.from("sectores").select("*").eq("activo", true);
-    res.json(data);
-});
-
-app.get("/consultorios", async (req, res) => {
-    const { data } = await supabase.from("consultorios").select("*").eq("sector", req.query.sector);
-    res.json(data);
-});
-
-app.get("/agenda", async (req, res) => {
-    const { data } = await supabase.from("agenda_base").select("*").eq("dia_semana", req.query.dia).eq("sector", req.query.sector);
-    res.json(data);
-});
-
-app.post("/agenda", async (req, res) => {
-    const { consultorio_id, profesional_id, horario, dia_semana, sector, especialidad } = req.body;
-    if(!profesional_id) {
-        await supabase.from("agenda_base").delete().eq("consultorio_id", consultorio_id).eq("horario", horario).eq("dia_semana", dia_semana).eq("sector", sector);
-    } else {
-        await supabase.from("agenda_base").upsert({ consultorio_id, profesional_id, horario, dia_semana, sector, especialidad });
+    if(desde && hasta) {
+        await supabase.from("ausencias").insert({ profesional_id, fecha_desde: desde, fecha_hasta: hasta });
     }
     res.json({ success: true });
 });
 
-app.listen(3000, () => console.log("Servidor en puerto 3000"));
+// AGENDA (Aquí está el filtrado crítico)
+app.get("/agenda", async (req, res) => {
+    const { dia, sector, fechaCompleta } = req.query;
+
+    // 1. Buscamos la agenda semanal
+    const { data: agenda } = await supabase.from("agenda_base")
+        .select("*").eq("dia_semana", dia).eq("sector", sector);
+
+    // 2. Buscamos quiénes están de licencia hoy
+    const { data: ausentes } = await supabase.from("ausencias")
+        .select("profesional_id")
+        .lte("fecha_desde", fechaCompleta)
+        .gte("fecha_hasta", fechaCompleta);
+
+    const idsAusentes = ausentes ? ausentes.map(a => a.profesional_id) : [];
+
+    // 3. Filtramos: Si el médico está ausente hoy, no lo enviamos
+    const agendaFinal = agenda ? agenda.filter(item => !idsAusentes.includes(item.profesional_id)) : [];
+    
+    res.json(agendaFinal);
+});
+
+app.post("/agenda", async (req, res) => {
+    const { consultorio_id, profesional_id, horario, dia_semana, sector } = req.body;
+    if(!profesional_id) {
+        await supabase.from("agenda_base").delete().eq("consultorio_id", consultorio_id).eq("horario", horario).eq("dia_semana", dia_semana).eq("sector", sector);
+    } else {
+        await supabase.from("agenda_base").upsert({ consultorio_id, profesional_id, horario, dia_semana, sector });
+    }
+    res.json({ success: true });
+});
+
+app.get("/sectores", async (req, res) => {
+    const { data } = await supabase.from("sectores").select("*").eq("activo", true);
+    res.json(data || []);
+});
+
+app.get("/consultorios", async (req, res) => {
+    const { data } = await supabase.from("consultorios").select("*").eq("sector", req.query.sector);
+    res.json(data || []);
+});
+
+app.listen(3000, () => console.log("Servidor listo"));
