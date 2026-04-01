@@ -3,21 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Gestión Médica</title>
-    <link rel="stylesheet" href="style.css">
+    <title>MediPlan - Gestión Médica</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    
     <div id="login-container">
         <div class="login-card">
-            <h2 id="form-title">Ingreso al Sistema</h2>
-            <p class="subtitle">Gestión de Agendas Médicas</p>
-            <input type="email" id="email" placeholder="Correo electrónico">
-            <input type="password" id="password" placeholder="Contraseña">
-            <button class="btn-primary" id="btn-submit" onclick="procesarFormulario()">Ingresar</button>
-            <div id="error-msg"></div>
-            <div class="toggle-form" id="toggle-text">
-                ¿No tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Solicitar acceso</a>
+            <div class="login-header">
+                <span class="logo-icon">⚕️</span>
+                <h2 id="form-title">Ingreso al Sistema</h2>
+                <p class="subtitle">Gestión de Agendas Clínicas CPPR</p>
+            </div>
+            <div class="login-body">
+                <div class="input-group">
+                    <label>Correo electrónico</label>
+                    <input type="email" id="email" placeholder="usuario@clinica.com">
+                </div>
+                <div class="input-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="password" placeholder="••••••••">
+                </div>
+                <button class="btn-primary btn-lg" id="btn-submit" onclick="procesarFormulario()">Ingresar al Panel</button>
+            </div>
+            <div class="login-footer">
+                <span id="toggle-text">¿No tienes cuenta? <a href="#" onclick="toggleModoFormulario()">Solicitar acceso</a></span>
             </div>
         </div>
     </div>
@@ -25,41 +36,57 @@
     <div id="app" style="display: none;">
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2>MediPlan 2.0</h2>
-                <small id="user-email-display"></small>
+                <div class="logo">
+                    <span class="logo-icon">⚕️</span>
+                    <div class="logo-text">
+                        <h1>MediPlan</h1>
+                        <small>C.P.P.R.</small>
+                    </div>
+                </div>
             </div>
+            
             <nav class="sidebar-nav">
-                <button onclick="pantallaVerAgenda()" class="active">📅 Visor de Agenda</button>
-                <button onclick="pantallaModificarAgenda()">⚙️ Configurar Agenda</button>
-                <button onclick="pantallaProfesionales()">👨‍⚕️ Profesionales</button>
+                <button onclick="pantallaVerAgenda()" class="active" id="nav-ver">📅 Ver Agenda</button>
+                <button onclick="pantallaModificarAgenda()" id="nav-modificar">⚙️ Configurar Trunost</button>
+                <button onclick="pantallaProfesionales()" id="nav-profesionales">🩺 Profesionales</button>
                 <button id="btn-panel" style="display:none;" onclick="cargarPanelControl()">🛡️ Panel Admin</button>
             </nav>
 
-            <div id="filtros-container" class="filtros-agenda">
-                <h3>Filtros de Búsqueda</h3>
+            <div id="filtros-container" class="sidebar-card filtros-agenda">
+                <h3>🔍 Búsqueda de Agenda</h3>
                 
-                <label>Fecha Específica</label>
-                <input type="date" id="fecha-busqueda" onchange="actualizarDiaSemana()">
+                <div class="input-group-sm">
+                    <label>Fecha de Consulta</label>
+                    <input type="date" id="fecha-busqueda" onchange="actualizarDiaSemana()">
+                </div>
 
-                <label>Día de la Semana</label>
-                <select id="dia" disabled>
-                    <option value="Lunes">Lunes</option>
-                    <option value="Martes">Martes</option>
-                    <option value="Miercoles">Miércoles</option>
-                    <option value="Jueves">Jueves</option>
-                    <option value="Viernes">Viernes</option>
-                    <option value="Sabado">Sábado</option>
-                    <option value="Domingo">Domingo</option>
-                </select>
+                <div class="input-group-sm">
+                    <label>Día</label>
+                    <select id="dia" disabled>
+                        <option value="Lunes">Lunes</option>
+                        <option value="Martes">Martes</option>
+                        <option value="Miercoles">Miércoles</option>
+                        <option value="Jueves">Jueves</option>
+                        <option value="Viernes">Viernes</option>
+                        <option value="Sabado">Sábado</option>
+                        <option value="Domingo">Domingo</option>
+                    </select>
+                </div>
 
-                <label>Sector</label>
-                <select id="sector"></select>
+                <div class="input-group-sm">
+                    <label>Sector Médico</label>
+                    <select id="sector"></select>
+                </div>
 
-                <button class="btn-primary" onclick="ejecutarBusqueda()">Buscar</button>
+                <button class="btn-primary btn-sm" onclick="ejecutarBusqueda()">Cargar Grilla</button>
             </div>
 
             <div class="sidebar-footer">
-                <button class="btn-logout" onclick="cerrarSesion()">Cerrar Sesión</button>
+                <div class="user-pill">
+                    <span class="user-avatar">👤</span>
+                    <span id="user-email-display">usuario@clinica.com</span>
+                </div>
+                <button class="btn-logout-icon" onclick="cerrarSesion()" title="Cerrar Sesión">➡️</button>
             </div>
         </aside>
 
@@ -67,8 +94,14 @@
             <header class="topbar">
                 <h1 id="titulo-seccion">Visor de Agenda</h1>
             </header>
+            
             <section class="main-body" id="main-content">
-                </section>
+                <div class="empty-state">
+                    <div class="empty-icon">📅</div>
+                    <h2>¡Bienvenido a MediPlan!</h2>
+                    <p>Utiliza el panel de la izquierda para seleccionar la fecha, día y sector médico que deseas visualizar.</p>
+                </div>
+            </section>
         </main>
     </div>
 
