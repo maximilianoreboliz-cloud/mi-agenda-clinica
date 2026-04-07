@@ -6,6 +6,8 @@ require('dotenv').config();
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Servir archivos estáticos desde la carpeta 'public'
 app.use(express.static("public"));
 
 // Configuración de Supabase
@@ -13,114 +15,49 @@ const supabaseUrl = "https://ywycizbmesdhtfaaxyxt.supabase.co";
 const supabaseKey = process.env.SUPABASE_KEY;
 
 if (!supabaseKey) {
-    console.error("❌ ERROR CRÍTICO: No se detectó la variable SUPABASE_KEY en Render.");
+    console.error("❌ ERROR: No se encontró la variable SUPABASE_KEY en Render.");
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-/* --- AUTENTICACIÓN --- */
+/* --- RUTAS DE API --- */
+
+// Login
 app.post("/login", async (req, res) => {
     const { email, password } = req.body;
-    try {
-        const { data, error } = await supabase
-            .from("usuarios")
-            .select("*")
-            .eq("email", email)
-            .eq("password", password)
-            .single();
-
-        if (error || !data) {
-            console.error("Error en login:", error);
-            return res.status(401).json({ error: "Credenciales incorrectas o problema de conexión." });
-        }
-        if (!data.activo) return res.status(403).json({ error: "Cuenta pendiente de aprobación." });
-
-        res.json({ success: true, usuario: { id: data.id, email: data.email, es_admin: data.es_admin } });
-    } catch (e) {
-        res.status(500).json({ error: "Error interno del servidor." });
-    }
-});
-
-app.post("/registro", async (req, res) => {
-    const { email, password } = req.body;
-    const { error } = await supabase
+    const { data, error } = await supabase
         .from("usuarios")
-        .insert({ email, password, activo: false, es_admin: false });
+        .select("*")
+        .eq("email", email)
+        .eq("password", password)
+        .single();
 
-    if (error) return res.status(500).json({ error: "Error al registrar. El usuario podría ya existir." });
-    res.json({ success: true });
+    if (error || !data) return res.status(401).json({ error: "Credenciales incorrectas." });
+    if (!data.activo) return res.status(403).json({ error: "Cuenta pendiente de aprobación." });
+
+    res.json({ success: true, usuario: { id: data.id, email: data.email, es_admin: data.es_admin } });
 });
 
-/* --- GESTIÓN DE USUARIOS (ADMIN) --- */
-app.get("/usuarios/admin", async (req, res) => {
-    const { data } = await supabase.from("usuarios").select("id, email, activo, es_admin").order("email");
-    res.json(data || []);
-});
-
-app.patch("/usuarios/aprobar/:id", async (req, res) => {
-    const { error } = await supabase.from("usuarios").update({ activo: true }).eq("id", req.params.id);
-    res.json({ success: !error });
-});
-
-app.delete("/usuarios/:id", async (req, res) => {
-    const { error } = await supabase.from("usuarios").delete().eq("id", req.params.id);
-    res.json({ success: !error });
-});
-
-/* --- PROFESIONALES --- */
-app.get("/profesionales", async (req, res) => {
-    const { data } = await supabase.from("profesionales").select("*").order("nombre");
-    res.json(data || []);
-});
-
-app.post("/profesional", async (req, res) => {
-    const { nombre, especialidades } = req.body;
-    const { error } = await supabase.from("profesionales").insert({ nombre, especialidades, activo: true, color: "#e2e8f0" });
-    res.json({ success: !error });
-});
-
-app.patch("/profesional/:id", async (req, res) => {
-    const { nombre, especialidades } = req.body;
-    const { error } = await supabase.from("profesionales").update({ nombre, especialidades }).eq("id", req.params.id);
-    res.json({ success: !error });
-});
-
-app.patch("/profesional/:id/color", async (req, res) => {
-    const { error } = await supabase.from("profesionales").update({ color: req.body.color }).eq("id", req.params.id);
-    res.json({ success: !error });
-});
-
-app.delete("/profesional/:id", async (req, res) => {
-    const { error } = await supabase.from("profesionales").delete().eq("id", req.params.id);
-    res.json({ success: !error });
-});
-
-/* --- LICENCIAS Y AGENDA --- */
-app.get("/ausencias", async (req, res) => {
-    const { data } = await supabase.from("ausencias").select("*");
-    res.json(data || []);
-});
-
-app.post("/licencia", async (req, res) => {
-    const { profesional_id, desde, hasta } = req.body;
-    await supabase.from("ausencias").delete().eq("profesional_id", profesional_id);
-    if(desde && hasta) {
-        const { error } = await supabase.from("ausencias").insert({ profesional_id, fecha_desde: desde, fecha_hasta: hasta });
-        return res.json({ success: !error });
-    }
-    res.json({ success: true });
-});
-
+// Sectores
 app.get("/sectores", async (req, res) => {
-    const { data } = await supabase.from("sectores").select("*").eq("activo", true);
+    const { data, error } = await supabase.from("sectores").select("*").eq("activo", true);
+    if (error) return res.status(500).json(error);
     res.json(data || []);
 });
 
+// Consultorios
 app.get("/consultorios", async (req, res) => {
     const { data } = await supabase.from("consultorios").select("*").eq("sector", req.query.sector);
     res.json(data || []);
 });
 
+// Profesionales
+app.get("/profesionales", async (req, res) => {
+    const { data } = await supabase.from("profesionales").select("*").order("nombre");
+    res.json(data || []);
+});
+
+// Agenda
 app.get("/agenda", async (req, res) => {
     const { dia, sector, fechaCompleta } = req.query;
     const { data: agenda } = await supabase.from("agenda_base").select("*").eq("dia_semana", dia).eq("sector", sector);
@@ -130,6 +67,7 @@ app.get("/agenda", async (req, res) => {
     res.json(agendaFinal);
 });
 
+// Guardar en Agenda
 app.post("/agenda", async (req, res) => {
     const { consultorio_id, profesional_id, horario, dia_semana, sector, especialidad } = req.body;
     if(!profesional_id) {
@@ -140,5 +78,21 @@ app.post("/agenda", async (req, res) => {
     res.json({ success: true });
 });
 
+// Licencias
+app.get("/ausencias", async (req, res) => {
+    const { data } = await supabase.from("ausencias").select("*");
+    res.json(data || []);
+});
+
+app.post("/licencia", async (req, res) => {
+    const { profesional_id, desde, hasta } = req.body;
+    await supabase.from("ausencias").delete().eq("profesional_id", profesional_id);
+    if(desde && hasta) {
+        await supabase.from("ausencias").insert({ profesional_id, fecha_desde: desde, fecha_hasta: hasta });
+    }
+    res.json({ success: true });
+});
+
+// Arrancar el servidor
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Servidor activo en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Servidor corriendo en puerto ${PORT}`));
