@@ -2,78 +2,52 @@ let modo = "ver";
 let datosUsuario = null;
 let listaProfesionalesGlobal = [];
 
-// Navegación del Menú Lateral
+// --- NAVEGACIÓN ---
 function pantallaVerAgenda() {
     modo = "ver";
-    document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
-    document.querySelector('[onclick="pantallaVerAgenda()"]').classList.add('active');
-    document.getElementById("titulo-seccion").innerText = "Visor de Agenda Semanal";
+    actualizarInterfazMenu('btn-ver');
     document.getElementById("filtros-container").style.display = "block";
     document.getElementById("main-content").innerHTML = "";
 }
 
 function pantallaModificarAgenda() {
     modo = "editar";
-    document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
-    document.querySelector('[onclick="pantallaModificarAgenda()"]').classList.add('active');
-    document.getElementById("titulo-seccion").innerText = "Configurar Agenda Base";
+    actualizarInterfazMenu('btn-modificar');
     document.getElementById("filtros-container").style.display = "block";
     document.getElementById("main-content").innerHTML = "";
 }
 
-async function pantallaProfesionales() {
+function actualizarInterfazMenu(idActivo) {
     document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
-    document.querySelector('[onclick="pantallaProfesionales()"]').classList.add('active');
-    document.getElementById("titulo-seccion").innerText = "Gestión de Profesionales";
-    document.getElementById("filtros-container").style.display = "none";
-    
-    const res = await fetch("/profesionales");
-    const profesionales = await res.json();
-    
-    let html = `
-        <div class="card-table">
-            <button class="btn-primary" onclick="mostrarFormProfesional()" style="margin-bottom:15px">+ Nuevo Profesional</button>
-            <table>
-                <tr><th>Nombre</th><th>Especialidades</th><th>Acciones</th></tr>
-                ${profesionales.map(p => `
-                    <tr>
-                        <td>${p.nombre}</td>
-                        <td>${p.especialidades}</td>
-                        <td><button onclick="eliminarProfesional('${p.id}')" style="color:red">Eliminar</button></td>
-                    </tr>
-                `).join('')}
-            </table>
-        </div>`;
-    document.getElementById("main-content").innerHTML = html;
+    // Asegúrate de que tus botones en el HTML tengan estos IDs o usa selectores de texto
+    document.getElementById(idActivo)?.classList.add('active');
 }
 
-// Lógica de Agenda
+// --- LÓGICA DE DATOS ---
 async function ejecutarBusqueda() {
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
+    const fechaParaLicencia = document.getElementById("fecha-busqueda")?.value;
 
     try {
-        const [resC, resA, resP] = await Promise.all([
+        const [resC, resA, resP, resL] = await Promise.all([
             fetch(`/consultorios?sector=${sector}`),
             fetch(`/agenda?dia=${dia}&sector=${sector}`),
-            fetch("/profesionales")
+            fetch("/profesionales"),
+            fetch(`/ausencias`)
         ]);
         
         const consultorios = await resC.json();
         const agenda = await resA.json();
         listaProfesionalesGlobal = await resP.json();
-        
-        dibujarAgenda(consultorios, agenda, sector, dia);
-    } catch (e) { console.error(e); }
+        const licencias = await resL.json();
+
+        dibujarAgenda(consultorios, agenda, licencias, fechaParaLicencia);
+    } catch (e) { console.error("Error en búsqueda:", e); }
 }
 
-function dibujarAgenda(consultorios, agenda, sector, dia) {
+function dibujarAgenda(consultorios, agenda, licencias, fechaActual) {
     const container = document.getElementById("main-content");
-    if(!consultorios.length) {
-        container.innerHTML = "<h3>No hay consultorios en este sector</h3>";
-        return;
-    }
-
     let horarios = [];
     for (let h = 8; h <= 19; h++) {
         horarios.push(`${String(h).padStart(2, "0")}:00`);
@@ -88,13 +62,24 @@ function dibujarAgenda(consultorios, agenda, sector, dia) {
         html += `<tr><td class="hora-col">${h}</td>`;
         consultorios.forEach(c => {
             const slot = agenda.find(a => a.horario == h && a.consultorio_id == c.id);
+            const prof = slot ? listaProfesionalesGlobal.find(p => p.id == slot.profesional_id) : null;
+            
+            // Chequear si el profesional tiene licencia hoy
+            const estaDeLicencia = prof && licencias.some(l => 
+                l.profesional_id == prof.id && fechaActual >= l.fecha_desde && fechaActual <= l.fecha_hasta
+            );
+
             if (modo === "editar") {
-                const prof = slot ? listaProfesionalesGlobal.find(p => p.id == slot.profesional_id) : null;
-                const txt = prof ? prof.nombre : "- Libre -";
-                html += `<td><div class="custom-select-box" onclick="abrirMenuAsignar('${c.id}','${h}', event)">${txt}</div></td>`;
+                const nombre = prof ? prof.nombre : "- Libre -";
+                html += `<td><div class="custom-select-box" onclick="abrirMenuAsignar('${c.id}','${h}')">${nombre}</div></td>`;
             } else {
-                const p = slot ? listaProfesionalesGlobal.find(x => x.id == slot.profesional_id) : null;
-                html += p ? `<td><div class="slot-ocupado" style="background:${p.color}">${p.nombre}</div></td>` : `<td>Libre</td>`;
+                if (estaDeLicencia) {
+                    html += `<td><div class="slot-licencia">LICENCIA: ${prof.nombre}</div></td>`;
+                } else if (prof) {
+                    html += `<td><div class="slot-ocupado" style="background:${prof.color}">${prof.nombre}<br><small>${slot.especialidad || ''}</small></div></td>`;
+                } else {
+                    html += `<td class="slot-vacio">Libre</td>`;
+                }
             }
         });
         html += "</tr>";
@@ -102,40 +87,35 @@ function dibujarAgenda(consultorios, agenda, sector, dia) {
     container.innerHTML = html + "</table></div>";
 }
 
-// Inicialización
-function iniciarSesion(usuario) {
-    datosUsuario = usuario;
-    document.getElementById("login-container").style.display = "none";
-    document.getElementById("app").style.display = "flex";
-    document.getElementById("user-email-display").innerText = usuario.email;
-    cargarSectores();
-    pantallaVerAgenda();
-}
-
-async function cargarSectores() {
-    const res = await fetch("/sectores");
-    const sectores = await res.json();
-    const select = document.getElementById("sector");
-    select.innerHTML = sectores.map(s => `<option value="${s.nombre}">${s.nombre}</option>`).join('');
-}
-
-// Función para abrir el menú de asignación (el desplegable que mencionas)
-function abrirMenuAsignar(consultorioId, horario, event) {
+// --- EL FAMOSO DROPDOWN DE ASIGNACIÓN ---
+function abrirMenuAsignar(consultorioId, horario) {
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
+
+    // Usamos un prompt simple para no fallar con HTML extra, 
+    // pero lo ideal es un modal que ya tenemos en el CSS.
+    const seleccion = prompt("Asignar Profesional:\nEscribe el NOMBRE exacto del profesional o deja vacío para borrar:");
     
-    // Aquí iría la lógica del modal o dropdown flotante para elegir profesional
-    let profId = prompt("Ingrese ID del profesional (o deje vacío para liberar):");
-    
+    const profEncontrado = listaProfesionalesGlobal.find(p => p.nombre.toLowerCase() === seleccion?.toLowerCase());
+
     fetch("/agenda", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({
             consultorio_id: consultorioId,
-            profesional_id: profId || null,
+            profesional_id: profEncontrado ? profEncontrado.id : null,
             horario: horario,
             dia_semana: dia,
-            sector: sector
+            sector: sector,
+            especialidad: profEncontrado ? profEncontrado.especialidades : ""
         })
     }).then(() => ejecutarBusqueda());
+}
+
+// Carga Inicial
+async function cargarSectores() {
+    const res = await fetch("/sectores");
+    const sectores = await res.json();
+    const select = document.getElementById("sector");
+    if(select) select.innerHTML = sectores.map(s => `<option value="${s.nombre}">${s.nombre}</option>`).join('');
 }
