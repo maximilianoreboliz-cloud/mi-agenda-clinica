@@ -1,89 +1,61 @@
 let modo = "ver";
-let esRegistro = false;
 let datosUsuario = null;
 let listaProfesionalesGlobal = [];
 
-document.addEventListener('DOMContentLoaded', () => {
-    const inpFecha = document.getElementById("fecha-busqueda");
-    if(inpFecha) {
-        const hoy = new Date().toISOString().split('T')[0];
-        inpFecha.value = hoy;
-        actualizarDiaSemana();
-    }
-});
+// Navegación del Menú Lateral
+function pantallaVerAgenda() {
+    modo = "ver";
+    document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+    document.querySelector('[onclick="pantallaVerAgenda()"]').classList.add('active');
+    document.getElementById("titulo-seccion").innerText = "Visor de Agenda Semanal";
+    document.getElementById("filtros-container").style.display = "block";
+    document.getElementById("main-content").innerHTML = "";
+}
 
-async function procesarFormulario() {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    const errorMsg = document.getElementById("error-msg");
+function pantallaModificarAgenda() {
+    modo = "editar";
+    document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+    document.querySelector('[onclick="pantallaModificarAgenda()"]').classList.add('active');
+    document.getElementById("titulo-seccion").innerText = "Configurar Agenda Base";
+    document.getElementById("filtros-container").style.display = "block";
+    document.getElementById("main-content").innerHTML = "";
+}
+
+async function pantallaProfesionales() {
+    document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+    document.querySelector('[onclick="pantallaProfesionales()"]').classList.add('active');
+    document.getElementById("titulo-seccion").innerText = "Gestión de Profesionales";
+    document.getElementById("filtros-container").style.display = "none";
     
-    if (!email || !password) {
-        if (errorMsg) errorMsg.innerText = "Ingresa email y contraseña.";
-        return;
-    }
+    const res = await fetch("/profesionales");
+    const profesionales = await res.json();
     
-    const endpoint = esRegistro ? "/registro" : "/login";
-    try {
-        const res = await fetch(endpoint, {
-            method: "POST", 
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password })
-        });
-        const data = await res.json();
-        
-        if (res.ok) {
-            if (esRegistro) {
-                alert("Solicitud enviada con éxito.");
-                toggleModoFormulario();
-            } else {
-                iniciarSesion(data.usuario);
-            }
-        } else {
-            if (errorMsg) errorMsg.innerText = data.error;
-        }
-    } catch (e) {
-        if (errorMsg) errorMsg.innerText = "Error de conexión.";
-    }
+    let html = `
+        <div class="card-table">
+            <button class="btn-primary" onclick="mostrarFormProfesional()" style="margin-bottom:15px">+ Nuevo Profesional</button>
+            <table>
+                <tr><th>Nombre</th><th>Especialidades</th><th>Acciones</th></tr>
+                ${profesionales.map(p => `
+                    <tr>
+                        <td>${p.nombre}</td>
+                        <td>${p.especialidades}</td>
+                        <td><button onclick="eliminarProfesional('${p.id}')" style="color:red">Eliminar</button></td>
+                    </tr>
+                `).join('')}
+            </table>
+        </div>`;
+    document.getElementById("main-content").innerHTML = html;
 }
 
-function iniciarSesion(usuario) {
-    datosUsuario = usuario;
-    document.getElementById("login-container").style.display = "none";
-    document.getElementById("app").style.display = "flex";
-    document.getElementById("user-email-display").innerText = usuario.email;
-    document.getElementById("btn-panel").style.display = usuario.es_admin ? "block" : "none";
-    cargarSectores();
-    pantallaVerAgenda();
-}
-
-async function cargarSectores() {
-    try {
-        const res = await fetch("/sectores");
-        const sectores = await res.json();
-        const selectSector = document.getElementById("sector");
-        if (selectSector && sectores.length > 0) {
-            selectSector.innerHTML = sectores.map(s => `<option value="${s.nombre}">${s.nombre}</option>`).join('');
-        }
-    } catch (e) { console.error("Error cargando sectores"); }
-}
-
-function actualizarDiaSemana() {
-    const fechaVal = document.getElementById("fecha-busqueda").value;
-    if(!fechaVal) return;
-    const fecha = new Date(fechaVal + "T00:00:00");
-    const dias = ["Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"];
-    document.getElementById("dia").value = dias[fecha.getDay()];
-}
-
+// Lógica de Agenda
 async function ejecutarBusqueda() {
     const dia = document.getElementById("dia").value;
     const sector = document.getElementById("sector").value;
-    const fecha = document.getElementById("fecha-busqueda").value;
 
     try {
         const [resC, resA, resP] = await Promise.all([
             fetch(`/consultorios?sector=${sector}`),
-            fetch(`/agenda?dia=${dia}&sector=${sector}&fechaCompleta=${fecha}`),
+            fetch(`/agenda?dia=${dia}&sector=${sector}`),
             fetch("/profesionales")
         ]);
         
@@ -91,23 +63,21 @@ async function ejecutarBusqueda() {
         const agenda = await resA.json();
         listaProfesionalesGlobal = await resP.json();
         
-        dibujarAgenda(consultorios, agenda, fecha, sector, dia);
-    } catch (e) {
-        console.error("Error al cargar la agenda:", e);
-    }
+        dibujarAgenda(consultorios, agenda, sector, dia);
+    } catch (e) { console.error(e); }
 }
 
-function dibujarAgenda(consultorios, agenda, fecha, sector, dia) {
+function dibujarAgenda(consultorios, agenda, sector, dia) {
     const container = document.getElementById("main-content");
-    if(!consultorios || consultorios.length === 0) {
-        container.innerHTML = `<div class="empty-state"><h3>No hay consultorios en este sector</h3></div>`;
+    if(!consultorios.length) {
+        container.innerHTML = "<h3>No hay consultorios en este sector</h3>";
         return;
     }
 
     let horarios = [];
     for (let h = 8; h <= 19; h++) {
         horarios.push(`${String(h).padStart(2, "0")}:00`);
-        if(h < 19) horarios.push(`${String(h).padStart(2, "0")}:30`);
+        horarios.push(`${String(h).padStart(2, "0")}:30`);
     }
 
     let html = `<div class="card-table"><table><tr><th>Hora</th>`;
@@ -115,7 +85,7 @@ function dibujarAgenda(consultorios, agenda, fecha, sector, dia) {
     html += "</tr>";
 
     horarios.forEach(h => {
-        html += `<tr><td style="text-align:center; font-weight:bold;">${h}</td>`;
+        html += `<tr><td class="hora-col">${h}</td>`;
         consultorios.forEach(c => {
             const slot = agenda.find(a => a.horario == h && a.consultorio_id == c.id);
             if (modo === "editar") {
@@ -123,12 +93,8 @@ function dibujarAgenda(consultorios, agenda, fecha, sector, dia) {
                 const txt = prof ? prof.nombre : "- Libre -";
                 html += `<td><div class="custom-select-box" onclick="abrirMenuAsignar('${c.id}','${h}', event)">${txt}</div></td>`;
             } else {
-                if(slot) {
-                    const p = listaProfesionalesGlobal.find(x => x.id == slot.profesional_id);
-                    html += `<td><div class="slot-ocupado" style="background:${p?.color || '#e2e8f0'}">${p?.nombre || '?'}<br><small>${slot.especialidad || ''}</small></div></td>`;
-                } else {
-                    html += `<td class="slot-vacio">Libre</td>`;
-                }
+                const p = slot ? listaProfesionalesGlobal.find(x => x.id == slot.profesional_id) : null;
+                html += p ? `<td><div class="slot-ocupado" style="background:${p.color}">${p.nombre}</div></td>` : `<td>Libre</td>`;
             }
         });
         html += "</tr>";
@@ -136,16 +102,40 @@ function dibujarAgenda(consultorios, agenda, fecha, sector, dia) {
     container.innerHTML = html + "</table></div>";
 }
 
-function pantallaVerAgenda() { 
-    modo = "ver"; 
-    document.getElementById("titulo-seccion").innerText = "Visor de Agenda";
-    document.getElementById("filtros-container").style.display = "block";
+// Inicialización
+function iniciarSesion(usuario) {
+    datosUsuario = usuario;
+    document.getElementById("login-container").style.display = "none";
+    document.getElementById("app").style.display = "flex";
+    document.getElementById("user-email-display").innerText = usuario.email;
+    cargarSectores();
+    pantallaVerAgenda();
 }
 
-function pantallaModificarAgenda() { 
-    modo = "editar"; 
-    document.getElementById("titulo-seccion").innerText = "Configurar Turnos";
-    document.getElementById("filtros-container").style.display = "block";
+async function cargarSectores() {
+    const res = await fetch("/sectores");
+    const sectores = await res.json();
+    const select = document.getElementById("sector");
+    select.innerHTML = sectores.map(s => `<option value="${s.nombre}">${s.nombre}</option>`).join('');
 }
 
-function cerrarSesion() { location.reload(); }
+// Función para abrir el menú de asignación (el desplegable que mencionas)
+function abrirMenuAsignar(consultorioId, horario, event) {
+    const dia = document.getElementById("dia").value;
+    const sector = document.getElementById("sector").value;
+    
+    // Aquí iría la lógica del modal o dropdown flotante para elegir profesional
+    let profId = prompt("Ingrese ID del profesional (o deje vacío para liberar):");
+    
+    fetch("/agenda", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            consultorio_id: consultorioId,
+            profesional_id: profId || null,
+            horario: horario,
+            dia_semana: dia,
+            sector: sector
+        })
+    }).then(() => ejecutarBusqueda());
+}
