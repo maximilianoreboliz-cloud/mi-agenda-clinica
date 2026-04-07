@@ -13,7 +13,7 @@ const supabaseUrl = "https://ywycizbmesdhtfaaxyxt.supabase.co";
 const supabaseKey = process.env.SUPABASE_KEY;
 
 if (!supabaseKey) {
-    console.error("❌ ERROR: No se encontró SUPABASE_KEY en las variables de entorno.");
+    console.error("❌ ERROR CRÍTICO: No se detectó la variable SUPABASE_KEY en Render.");
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -21,17 +21,24 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 /* --- AUTENTICACIÓN --- */
 app.post("/login", async (req, res) => {
     const { email, password } = req.body;
-    const { data, error } = await supabase
-        .from("usuarios")
-        .select("*")
-        .eq("email", email)
-        .eq("password", password)
-        .single();
+    try {
+        const { data, error } = await supabase
+            .from("usuarios")
+            .select("*")
+            .eq("email", email)
+            .eq("password", password)
+            .single();
 
-    if (error || !data) return res.status(401).json({ error: "Credenciales incorrectas." });
-    if (!data.activo) return res.status(403).json({ error: "Cuenta pendiente de aprobación." });
+        if (error || !data) {
+            console.error("Error en login:", error);
+            return res.status(401).json({ error: "Credenciales incorrectas o problema de conexión." });
+        }
+        if (!data.activo) return res.status(403).json({ error: "Cuenta pendiente de aprobación." });
 
-    res.json({ success: true, usuario: { id: data.id, email: data.email, es_admin: data.es_admin } });
+        res.json({ success: true, usuario: { id: data.id, email: data.email, es_admin: data.es_admin } });
+    } catch (e) {
+        res.status(500).json({ error: "Error interno del servidor." });
+    }
 });
 
 app.post("/registro", async (req, res) => {
@@ -40,11 +47,11 @@ app.post("/registro", async (req, res) => {
         .from("usuarios")
         .insert({ email, password, activo: false, es_admin: false });
 
-    if (error) return res.status(500).json({ error: "El usuario ya existe o error de base de datos." });
+    if (error) return res.status(500).json({ error: "Error al registrar. El usuario podría ya existir." });
     res.json({ success: true });
 });
 
-/* --- ADMIN --- */
+/* --- GESTIÓN DE USUARIOS (ADMIN) --- */
 app.get("/usuarios/admin", async (req, res) => {
     const { data } = await supabase.from("usuarios").select("id, email, activo, es_admin").order("email");
     res.json(data || []);
@@ -88,7 +95,7 @@ app.delete("/profesional/:id", async (req, res) => {
     res.json({ success: !error });
 });
 
-/* --- LICENCIAS --- */
+/* --- LICENCIAS Y AGENDA --- */
 app.get("/ausencias", async (req, res) => {
     const { data } = await supabase.from("ausencias").select("*");
     res.json(data || []);
@@ -104,7 +111,6 @@ app.post("/licencia", async (req, res) => {
     res.json({ success: true });
 });
 
-/* --- AGENDA --- */
 app.get("/sectores", async (req, res) => {
     const { data } = await supabase.from("sectores").select("*").eq("activo", true);
     res.json(data || []);
@@ -134,5 +140,5 @@ app.post("/agenda", async (req, res) => {
     res.json({ success: true });
 });
 
-const PORT = 3000;
-app.listen(PORT, () => console.log(`🚀 Servidor en puerto ${PORT}`));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 Servidor activo en puerto ${PORT}`));
